@@ -1,0 +1,136 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+stripe:
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET}
+  connect:
+    refresh-url: ${STRIPE_CONNECT_REFRESH_URL}
+    return-url: ${STRIPE_CONNECT_RETURN_URL}
+    after-onboarding-redirect-url: ${STRIPE_CONNECT_AFTER_ONBOARDING_REDIRECT_URL}
+
+
+firebase:
+  bucket: healthhomeadvanced.firebasestorage.app
+  credentials: file:${HEAD_FIREBASE_STORAGE_PATH}
+
+fcm:
+  project-id: ${HEAD_FCM_PROJECT_ID}
+  service-account: file:${HEAD_FCM_SERVICE_ACCOUNT_PATH}
+
+google:
+  oauth:
+    client-id: ${GOOGLE_WEB_CLIENT_ID}
+
+telnyx:
+  base-url: https://api.telnyx.com/v2
+  api-key: ${TELNYX_API_KEY}
+  verify-profile-id: 4900019d-7317-da99-6049-13f97a55aafc
+
+head:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-min-32-bytes}
+      issuer: https://api.docarya.com.mx/
+      audience: health-delivery-app
+      ttl-seconds: 180
+      ttl-seconds-admin: 7000
+      clock-skew-seconds: 60
+    paths:
+      public-paths:
+        - /auth/login
+        - /auth/refresh
+        - /auth/logout
+        - /swagger-ui/**
+        - /v3/api-docs/**
+        - /personalAuthentication/**
+        - /authentication/client/**
+        - /clientRegister/v1/clients/**
+        - /system/**
+        - /api/legal/global/**
+        - /api/stripe/webhooks/**
+        - /api/public/stripe/connect/refresh
+        - /api/public/stripe/connect/return
+        - /api/admins/auth/login
+        - /api/public/consulting-leads
+      by-role:
+        REGISTER_PERSONAL:
+          - /register/personal/**
+          - /staffs/files/**
+          - /app/staff/**
+          - /staff/profile/**
+        ACCESS_PERSONAL:
+          - /locationUsers/**
+          - /staffs/files/**
+          - /app/staff/**
+          - /app/state
+          - /staff/jobs/**
+          - /api/chat/staff/v1/**
+          - /api/push/staff/**
+          - /api/schedule/**
+          - /api/staff/prescriptions/**
+          - /api/me/staff/**
+          - /api/finance/**
+          - /api/staff/profile/**
+          - /api/staff/service-history/**
+          - /api/legal/staff/**
+          - /api/staff/stripe/**
+          - /api/webrtc/staff/**
+          - /app/state/staff
+          - /api/staffs/**
+        REGISTER_CLIENT:
+          - /app/client/**
+          - /clientSuccess/**
+        ACCESS_CLIENT:
+          - /paymentsMethods/**
+          - /clients/files/**
+          - /api/payment-methods/**
+          - /app/client/**
+          - /app/state
+          - /api/payments/**
+          - /api/chat/v1/**
+          - /api/push/**
+          - /api/client/prescriptions/**
+          - /dashboard/v1/**
+          - /api/me/**
+          - /api/legal/client/**
+          - /api/webrtc/client/**
+          - /app/state/client
+          - /api/clients/**
+        SUPER_ADMIN:
+          - /files/**
+          - /api/admin/**
+          - /system/files/v1/**
+    headers:
+      required:
+        - X-Device-Id
+        - X-Platform
+        - X-App-Version
+        - X-App-Build
+      aliases:
+        X-Device-Id: "(X-Device-Id|Device-Id|X-DeviceID)"
+        X-Platform: "(X-Platform|Platform)"
+        X-App-Version: "X-App-Version"
+        X-App-Build: "X-App-Build"
+
+  values:
+    prescription:
+      validDays: 30
+  webrtc:
+    turn:
+      host: turn.docarya.com.mx
+      port: 3478
+      tls-port: 5349
+      ttl-seconds: 600
+      secret: ${TURN_STATIC_AUTH_SECRET}
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false

@@ -1,0 +1,8 @@
+package com.HealthAdvanced.healthAdvanced.HEADServiceRepository.repositoryService.repositoryNotifications;
+
+import com.HealthAdvanced.healthAdvanced.HEADServiceRepository.Service.IHEADServiceResultApi;
+import com.HealthAdvanced.healthAdvanced.HEADServiceRepository.repositoryService.repositoryNotifications.request.HEADNotificationPushRequest;
+
+public interface IHEADNotificationsPushRepository {
+    //void sendNotificationPush(HEADNotificationPushRequest headNotificationPushRequest, IHEADServiceResultApi serviceCallBack);
+}

@@ -1,0 +1,35 @@
+# Version control artifacts
+.svn
+
+# Maven and Java build outputs
+target/
+out/
+*.class
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+
+# IDE/editor
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Local config overrides
+application-local.properties
+application-local.yml
+application-local.yaml
+
+# Optional: Python cache (there is a .py file in resources)
+__pycache__/
+*.pyc
