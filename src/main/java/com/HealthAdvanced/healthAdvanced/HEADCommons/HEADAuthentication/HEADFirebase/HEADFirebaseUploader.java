@@ -8,6 +8,7 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.StorageClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import lombok.extern.slf4j.Slf4j;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.core.io.Resource;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 @Configuration
+@Slf4j
 public class HEADFirebaseUploader {
 
     @Value("${firebase.bucket:}")      // permite vacío
@@ -42,10 +44,12 @@ public class HEADFirebaseUploader {
             String credPath = firstNonBlank(credentialsProp, System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
 
             if (!StringUtils.hasText(bucket)) {
-                throw new HEADBadRequestException("firebase.bucket no configurado (propiedad 'firebase.bucket' o env 'FIREBASE_BUCKET').");
+                log.warn("[FIREBASE] firebase.bucket no configurado; se omite inicializacion de Firebase en este entorno");
+                return;
             }
             if (!StringUtils.hasText(credPath)) {
-                throw new HEADBadRequestException("Ruta de credenciales vacía (propiedad 'firebase.credentials' o env 'GOOGLE_APPLICATION_CREDENTIALS').");
+                log.warn("[FIREBASE] credenciales no configuradas; define HEAD_FIREBASE_STORAGE_PATH o GOOGLE_APPLICATION_CREDENTIALS para habilitar Firebase");
+                return;
             }
 
             // 2) Abrir soportando file:/, classpath:/ o ruta absoluta
@@ -66,7 +70,7 @@ public class HEADFirebaseUploader {
 
         } catch (Exception e) {
             // imprime causa real
-            e.printStackTrace();
+            log.error("[FIREBASE] init failed", e);
             throw new HEADBusinessException("Firebase init failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }

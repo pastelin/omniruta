@@ -16,11 +16,11 @@ stripe:
 
 firebase:
   bucket: healthhomeadvanced.firebasestorage.app
-  credentials: file:${HEAD_FIREBASE_STORAGE_PATH}
+  credentials: ${HEAD_FIREBASE_STORAGE_PATH:}
 
 fcm:
   project-id: ${HEAD_FCM_PROJECT_ID}
-  service-account: file:${HEAD_FCM_SERVICE_ACCOUNT_PATH}
+  service-account: ${HEAD_FCM_SERVICE_ACCOUNT_PATH:}
 
 google:
   oauth:
@@ -34,7 +34,7 @@ telnyx:
 head:
   security:
     jwt:
-      secret: ${JWT_SECRET:change-me-min-32-bytes}
+      secret: ${JWT_SECRET:change-me-dev-secret-32-bytes-minimum-ok}
       issuer: https://api.docarya.com.mx/
       audience: health-delivery-app
       ttl-seconds: 180

@@ -40,6 +40,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 
 import java.time.Duration;
 
@@ -140,7 +141,7 @@ public class HEADJwtSecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder() {
-        byte[] keyBytes = java.util.Base64.getDecoder().decode(props.getJwt().getSecret());
+        byte[] keyBytes = resolveJwtKeyBytes(props.getJwt().getSecret());
         SecretKey key = new javax.crypto.spec.SecretKeySpec(keyBytes, "HmacSHA256");
         var dec = NimbusJwtDecoder.withSecretKey(key).build();
 
@@ -149,6 +150,24 @@ public class HEADJwtSecurityConfig {
         var withAud    = new HEADAudienceValidator(props.getJwt().getAudience());
         dec.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, withAud, withSkew));
         return dec;
+    }
+
+    private byte[] resolveJwtKeyBytes(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret vacio. Configura head.security.jwt.secret/JWT_SECRET");
+        }
+
+        byte[] bytes;
+        try {
+            bytes = java.util.Base64.getDecoder().decode(secret);
+        } catch (IllegalArgumentException ex) {
+            bytes = secret.getBytes(StandardCharsets.UTF_8);
+        }
+
+        if (bytes.length < 32) {
+            throw new IllegalStateException("JWT secret invalido: se requieren al menos 32 bytes para HS256");
+        }
+        return bytes;
     }
 }
 

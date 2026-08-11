@@ -7,7 +7,6 @@ import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADSecu
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -32,9 +31,26 @@ public class HEADJwtGenerator {
     private final HEADSecurityProperties props;
 
     private SecretKey key() {
-        // Si el secret está en Base64: Keys.hmacShaKeyFor(Decoders.BASE64.decode(props.getJwt().getSecret()))
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(props.getJwt().getSecret()));
+        return Keys.hmacShaKeyFor(resolveJwtKeyBytes(props.getJwt().getSecret()));
 
+    }
+
+    private byte[] resolveJwtKeyBytes(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret vacio. Configura head.security.jwt.secret/JWT_SECRET");
+        }
+
+        byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(secret);
+        } catch (IllegalArgumentException ex) {
+            bytes = secret.getBytes(StandardCharsets.UTF_8);
+        }
+
+        if (bytes.length < 32) {
+            throw new IllegalStateException("JWT secret invalido: se requieren al menos 32 bytes para HS256");
+        }
+        return bytes;
     }
 
 

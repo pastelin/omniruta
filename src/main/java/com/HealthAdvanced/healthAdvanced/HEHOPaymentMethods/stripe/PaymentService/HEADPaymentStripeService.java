@@ -62,6 +62,10 @@ public class HEADPaymentStripeService {
 
     @PostConstruct
     void initStripe() {
+        if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+            log.warn("[STRIPE] stripe.secret-key vacia; Stripe se desactiva hasta configurar STRIPE_KEY");
+            return;
+        }
         Stripe.apiKey = stripeSecretKey;
     }
 
