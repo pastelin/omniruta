@@ -6,7 +6,6 @@ import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADAute
 import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADServiceAuthentication.entity.HEADUserInfo;
 import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.entities.personalUsers.HEADPersonalUser;
 import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.irepositories.HEADPersonalUserRepository;
-import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.services.HEADPersonalService;
 import com.HealthAdvanced.healthAdvanced.ModelsBD.Users.HEADClients;
 import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +19,6 @@ import java.util.Objects;
 
 @Service
 public class HEADServiceAuthentications {
-    @Autowired
-    private HEADPersonalService userHeadPersonalService;
     @Autowired
     private HEADPersonalUserRepository personaUserRepository;
     @Autowired

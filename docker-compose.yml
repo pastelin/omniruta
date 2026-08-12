@@ -1,0 +1,140 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: omniruta-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: America/Mexico_City
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    networks:
+      - omniruta-network
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: omniruta-redis
+    restart: unless-stopped
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+    command: >
+      sh -c 'exec redis-server
+      --appendonly yes
+      --requirepass "$$REDIS_PASSWORD"'
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - omniruta-network
+
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: omniruta-backend
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+      - "8083:8083"
+
+    environment:
+
+      # Spring
+      SPRING_PROFILES_ACTIVE: prod
+
+      # MySQL
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+
+      # Socket.IO
+      SOCKET_HOST: 0.0.0.0
+      SOCKET_PORT: 8083
+
+      # Redis - configuración base
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # Redis - profile prod
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_USERNAME: default
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # Mail
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+
+      # Google Maps
+      API_KEY: ${API_KEY}
+
+      # Stripe
+      STRIPE_KEY: ${STRIPE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_CONNECT_REFRESH_URL: ${STRIPE_CONNECT_REFRESH_URL}
+      STRIPE_CONNECT_RETURN_URL: ${STRIPE_CONNECT_RETURN_URL}
+      STRIPE_CONNECT_AFTER_ONBOARDING_REDIRECT_URL: ${STRIPE_CONNECT_AFTER_ONBOARDING_REDIRECT_URL}
+
+      # Firebase / FCM
+      HEAD_FIREBASE_STORAGE_PATH: ${HEAD_FIREBASE_STORAGE_PATH}
+      HEAD_FCM_PROJECT_ID: ${HEAD_FCM_PROJECT_ID}
+      HEAD_FCM_SERVICE_ACCOUNT_PATH: ${HEAD_FCM_SERVICE_ACCOUNT_PATH}
+
+      # Google OAuth
+      GOOGLE_WEB_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID}
+
+      # Telnyx
+      TELNYX_API_KEY: ${TELNYX_API_KEY}
+
+      # Seguridad
+      JWT_SECRET: ${JWT_SECRET}
+      TURN_STATIC_AUTH_SECRET: ${TURN_STATIC_AUTH_SECRET}
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    networks:
+      - omniruta-network
+
+
+volumes:
+  mysql_data:
+  redis_data:
+
+
+networks:
+  omniruta-network:
+    driver: bridge
