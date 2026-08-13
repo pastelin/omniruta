@@ -57,6 +57,10 @@ head:
         - /api/public/stripe/connect/return
         - /api/admins/auth/login
         - /api/public/consulting-leads
+        # --- Demo HEADLiveTracking (temporal, quitar/asegurar antes de producción) ---
+        - /tracking-demo.html
+        - /ws/tracking/**
+        - /api/tracking/**
       by-role:
         REGISTER_PERSONAL:
           - /register/personal/**

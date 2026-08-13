@@ -149,6 +149,11 @@
 			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
 
+		<!-- WebSocket nativo de Spring, usado por el modulo HEADLiveTracking (demo de tracking en vivo) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
 
 		<!-- Redis (cliente Lettuce por defecto) -->
 		<dependency>

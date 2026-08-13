@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>HEADLiveTracking - Demo de rastreo en vivo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  #app { display: flex; height: 100%; }
+  #map { flex: 1; }
+  #panel { width: 340px; padding: 16px; box-sizing: border-box; overflow-y: auto; background: #111827; color: #e5e7eb; }
+  h1 { font-size: 16px; margin: 0 0 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; color: #9ca3af; margin: 20px 0 8px; }
+  label { display: block; font-size: 12px; margin-top: 8px; }
+  input, select { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+  button { margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border: 0; border-radius: 4px; font-weight: 600; }
+  .btn-primary { background: #2563eb; color: white; }
+  .btn-danger { background: #dc2626; color: white; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  #log { font-size: 11px; white-space: pre-wrap; background: #000; padding: 8px; margin-top: 10px; height: 160px; overflow-y: auto; border-radius: 4px; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .ok { background: #22c55e; } .bad { background: #dc2626; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <div id="panel">
+    <h1>🚗 HEADLiveTracking — demo</h1>
+    <div><span id="wsStatusDot" class="status-dot bad"></span><span id="wsStatusText">Desconectado</span></div>
+
+    <h2>1) Vista "cliente" (solo observa)</h2>
+    <p style="font-size:12px;color:#9ca3af">El mapa se actualiza solo, en vivo, con lo que reciba por WebSocket. Así vería el pasajero al staff acercándose.</p>
+
+    <h2>2) Simular "staff/repartidor"</h2>
+    <label>ID del vehículo/staff</label>
+    <input id="vehicleId" value="DEMO-STAFF-1" />
+
+    <div class="row">
+      <div>
+        <label>Lat manual</label>
+        <input id="manualLat" value="19.4326" />
+      </div>
+      <div>
+        <label>Lng manual</label>
+        <input id="manualLng" value="-99.1332" />
+      </div>
+    </div>
+    <button class="btn-primary" id="sendManual">Enviar ubicación manual</button>
+    <p style="font-size:11px;color:#9ca3af">O haz clic en el mapa para enviar esa ubicación como si fuera el staff.</p>
+
+    <button class="btn-primary" id="startSim">▶ Iniciar recorrido simulado</button>
+    <button class="btn-danger" id="stopSim">■ Detener recorrido</button>
+
+    <h2>Registro</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([19.4326, -99.1332], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const markers = {}; // vehicleId -> L.marker
+
+  function upsertMarker(v) {
+    if (v.lat == null || v.lng == null) return;
+    if (!markers[v.vehicleId]) {
+      markers[v.vehicleId] = L.marker([v.lat, v.lng]).addTo(map)
+        .bindPopup(v.vehicleId);
+    } else {
+      markers[v.vehicleId].setLatLng([v.lat, v.lng]);
+    }
+    markers[v.vehicleId].getPopup().setContent(
+      `${v.vehicleId}<br>${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}<br>${v.recordedAt || ''}`
+    );
+  }
+
+  function log(msg) {
+    const el = document.getElementById('log');
+    const time = new Date().toLocaleTimeString();
+    el.textContent = `[${time}] ${msg}\n` + el.textContent;
+  }
+
+  // --- WebSocket ---
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/tracking`);
+
+  ws.onopen = () => {
+    document.getElementById('wsStatusDot').className = 'status-dot ok';
+    document.getElementById('wsStatusText').textContent = 'Conectado';
+    log('WebSocket conectado');
+  };
+  ws.onclose = () => {
+    document.getElementById('wsStatusDot').className = 'status-dot bad';
+    document.getElementById('wsStatusText').textContent = 'Desconectado';
+    log('WebSocket cerrado');
+  };
+  ws.onerror = (e) => log('WebSocket error');
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'snapshot') {
+      (msg.vehicles || []).forEach(upsertMarker);
+      log(`Snapshot inicial: ${(msg.vehicles || []).length} vehículo(s)`);
+    } else if (msg.type === 'location') {
+      upsertMarker(msg.vehicle);
+      log(`Ubicación recibida: ${msg.vehicle.vehicleId} -> ${msg.vehicle.lat.toFixed(5)}, ${msg.vehicle.lng.toFixed(5)}`);
+    }
+  };
+
+  // --- Envío de ubicaciones (simulando al staff) ---
+  async function sendLocation(lat, lng) {
+    const vehicleId = document.getElementById('vehicleId').value.trim() || 'DEMO-STAFF-1';
+    const res = await fetch(`/api/tracking/vehicles/${encodeURIComponent(vehicleId)}/location`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lng })
+    });
+    if (!res.ok) log(`Error al enviar ubicación: HTTP ${res.status}`);
+  }
+
+  document.getElementById('sendManual').onclick = () => {
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lng = parseFloat(document.getElementById('manualLng').value);
+    sendLocation(lat, lng);
+  };
+
+  map.on('click', (e) => {
+    sendLocation(e.latlng.lat, e.latlng.lng);
+  });
+
+  // --- Simulador de recorrido (ruta fija de ejemplo en CDMX) ---
+  const route = [
+    [19.4326, -99.1332], [19.4340, -99.1300], [19.4360, -99.1270],
+    [19.4390, -99.1250], [19.4420, -99.1230], [19.4450, -99.1210],
+    [19.4480, -99.1190], [19.4510, -99.1170]
+  ];
+  let simTimer = null;
+  let simIndex = 0;
+
+  document.getElementById('startSim').onclick = () => {
+    if (simTimer) return;
+    log('Recorrido simulado iniciado');
+    simTimer = setInterval(() => {
+      const [lat, lng] = route[simIndex % route.length];
+      sendLocation(lat, lng);
+      simIndex++;
+    }, 1500);
+  };
+
+  document.getElementById('stopSim').onclick = () => {
+    clearInterval(simTimer);
+    simTimer = null;
+    log('Recorrido simulado detenido');
+  };
+</script>
+</body>
+</html>
