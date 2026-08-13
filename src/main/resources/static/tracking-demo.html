@@ -9,19 +9,27 @@
   html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
   #app { display: flex; height: 100%; }
   #map { flex: 1; }
-  #panel { width: 340px; padding: 16px; box-sizing: border-box; overflow-y: auto; background: #111827; color: #e5e7eb; }
+  #panel { width: 360px; padding: 16px; box-sizing: border-box; overflow-y: auto; background: #111827; color: #e5e7eb; }
   h1 { font-size: 16px; margin: 0 0 12px; }
   h2 { font-size: 13px; text-transform: uppercase; color: #9ca3af; margin: 20px 0 8px; }
   label { display: block; font-size: 12px; margin-top: 8px; }
   input, select { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
   button { margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border: 0; border-radius: 4px; font-weight: 600; }
   .btn-primary { background: #2563eb; color: white; }
+  .btn-secondary { background: #374151; color: white; }
   .btn-danger { background: #dc2626; color: white; }
   .row { display: flex; gap: 8px; }
   .row > div { flex: 1; }
-  #log { font-size: 11px; white-space: pre-wrap; background: #000; padding: 8px; margin-top: 10px; height: 160px; overflow-y: auto; border-radius: 4px; }
+  .row > button { margin-top: 10px; }
+  #log { font-size: 11px; white-space: pre-wrap; background: #000; padding: 8px; margin-top: 10px; height: 140px; overflow-y: auto; border-radius: 4px; }
   .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
   .ok { background: #22c55e; } .bad { background: #dc2626; }
+  .pick-mode { background: #7c3aed; color: white; }
+  .progress-wrap { background: #1f2937; border-radius: 6px; height: 10px; margin-top: 6px; overflow: hidden; }
+  .progress-bar { background: #22c55e; height: 100%; width: 0%; transition: width .3s linear; }
+  .stats { font-size: 12px; color: #d1d5db; margin-top: 6px; line-height: 1.6; }
+  .stats b { color: #fff; }
+  .hint { font-size: 11px; color: #9ca3af; }
 </style>
 </head>
 <body>
@@ -32,12 +40,29 @@
     <div><span id="wsStatusDot" class="status-dot bad"></span><span id="wsStatusText">Desconectado</span></div>
 
     <h2>1) Vista "cliente" (solo observa)</h2>
-    <p style="font-size:12px;color:#9ca3af">El mapa se actualiza solo, en vivo, con lo que reciba por WebSocket. Así vería el pasajero al staff acercándose.</p>
+    <p class="hint">El mapa se actualiza solo, en vivo, con lo que reciba por WebSocket. Así vería el pasajero al staff acercándose.</p>
 
-    <h2>2) Simular "staff/repartidor"</h2>
+    <h2>2) Ruta (como en Uber)</h2>
+    <p class="hint">Marca origen (staff) y destino (cliente) en el mapa, calcula la ruta real por calles y luego simula el recorrido sobre ella.</p>
+    <div class="row">
+      <button class="btn-secondary" id="pickOrigin">📍 Marcar origen</button>
+      <button class="btn-secondary" id="pickDest">🏁 Marcar destino</button>
+    </div>
+    <div class="stats" id="pointsInfo">Origen: (sin marcar) · Destino: (sin marcar)</div>
+    <button class="btn-primary" id="calcRoute">Calcular ruta</button>
+
+    <label>Velocidad simulada (km/h)</label>
+    <input id="simSpeed" type="number" value="30" min="1" />
+
+    <button class="btn-primary" id="startSim" disabled>▶ Iniciar recorrido sobre la ruta</button>
+    <button class="btn-danger" id="stopSim">■ Detener recorrido</button>
+
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="stats" id="progressStats">Avance: 0% · Restan -- · ETA --</div>
+
+    <h2>3) Ubicación manual (sin ruta)</h2>
     <label>ID del vehículo/staff</label>
     <input id="vehicleId" value="DEMO-STAFF-1" />
-
     <div class="row">
       <div>
         <label>Lat manual</label>
@@ -48,11 +73,7 @@
         <input id="manualLng" value="-99.1332" />
       </div>
     </div>
-    <button class="btn-primary" id="sendManual">Enviar ubicación manual</button>
-    <p style="font-size:11px;color:#9ca3af">O haz clic en el mapa para enviar esa ubicación como si fuera el staff.</p>
-
-    <button class="btn-primary" id="startSim">▶ Iniciar recorrido simulado</button>
-    <button class="btn-danger" id="stopSim">■ Detener recorrido</button>
+    <button class="btn-secondary" id="sendManual">Enviar ubicación manual</button>
 
     <h2>Registro</h2>
     <div id="log"></div>
@@ -101,7 +122,7 @@
     document.getElementById('wsStatusText').textContent = 'Desconectado';
     log('WebSocket cerrado');
   };
-  ws.onerror = (e) => log('WebSocket error');
+  ws.onerror = () => log('WebSocket error');
 
   ws.onmessage = (evt) => {
     const msg = JSON.parse(evt.data);
@@ -131,34 +152,183 @@
     sendLocation(lat, lng);
   };
 
+  // ==========================================================
+  // Ruta real (Directions) + recorrido simulado sobre la ruta
+  // ==========================================================
+
+  let origin = null;      // {lat,lng}
+  let destination = null; // {lat,lng}
+  let pickMode = null;    // 'origin' | 'dest' | null
+  let originMarker = null, destMarker = null;
+  let fullRouteLine = null;    // polyline completa (gris) - la ruta a seguir
+  let traveledRouteLine = null; // polyline de lo ya recorrido (verde)
+  let routePoints = [];   // [{lat,lng}, ...] siguiendo calles (o línea recta si no hay ruta real)
+  let cumDistances = [];  // distancia acumulada (m) hasta cada punto de routePoints
+  let totalDistanceM = 0;
+  let simRunning = false;
+  let simStartTime = 0;
+  let simRafId = null;
+
+  function setPickMode(mode) {
+    pickMode = mode;
+    document.getElementById('pickOrigin').classList.toggle('pick-mode', mode === 'origin');
+    document.getElementById('pickDest').classList.toggle('pick-mode', mode === 'dest');
+  }
+  document.getElementById('pickOrigin').onclick = () => setPickMode(pickMode === 'origin' ? null : 'origin');
+  document.getElementById('pickDest').onclick = () => setPickMode(pickMode === 'dest' ? null : 'dest');
+
+  function updatePointsInfo() {
+    const o = origin ? `${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}` : '(sin marcar)';
+    const d = destination ? `${destination.lat.toFixed(5)}, ${destination.lng.toFixed(5)}` : '(sin marcar)';
+    document.getElementById('pointsInfo').textContent = `Origen: ${o} · Destino: ${d}`;
+  }
+
   map.on('click', (e) => {
-    sendLocation(e.latlng.lat, e.latlng.lng);
+    if (pickMode === 'origin') {
+      origin = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (originMarker) originMarker.setLatLng(e.latlng); else originMarker = L.marker(e.latlng, { title: 'Origen (staff)' }).addTo(map);
+      setPickMode(null);
+      updatePointsInfo();
+    } else if (pickMode === 'dest') {
+      destination = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (destMarker) destMarker.setLatLng(e.latlng); else destMarker = L.marker(e.latlng, { title: 'Destino (cliente)' }).addTo(map);
+      setPickMode(null);
+      updatePointsInfo();
+    } else {
+      // sin modo activo: comportamiento previo, manda una ubicación suelta
+      sendLocation(e.latlng.lat, e.latlng.lng);
+    }
   });
 
-  // --- Simulador de recorrido (ruta fija de ejemplo en CDMX) ---
-  const route = [
-    [19.4326, -99.1332], [19.4340, -99.1300], [19.4360, -99.1270],
-    [19.4390, -99.1250], [19.4420, -99.1230], [19.4450, -99.1210],
-    [19.4480, -99.1190], [19.4510, -99.1170]
-  ];
-  let simTimer = null;
-  let simIndex = 0;
+  // Decodificador de "encoded polyline" de Google (algoritmo estándar, sin dependencias externas)
+  function decodeGooglePolyline(encoded) {
+    let points = [], index = 0, lat = 0, lng = 0;
+    while (index < encoded.length) {
+      let b, shift = 0, result = 0;
+      do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+      shift = 0; result = 0;
+      do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+      points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+    }
+    return points;
+  }
 
-  document.getElementById('startSim').onclick = () => {
-    if (simTimer) return;
-    log('Recorrido simulado iniciado');
-    simTimer = setInterval(() => {
-      const [lat, lng] = route[simIndex % route.length];
-      sendLocation(lat, lng);
-      simIndex++;
-    }, 1500);
-  };
+  function haversineMeters(a, b) {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  }
 
-  document.getElementById('stopSim').onclick = () => {
-    clearInterval(simTimer);
-    simTimer = null;
-    log('Recorrido simulado detenido');
-  };
+  function buildCumulativeDistances(points) {
+    const cum = [0];
+    for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + haversineMeters(points[i - 1], points[i]));
+    return cum;
+  }
+
+  function drawFullRoute(points) {
+    if (fullRouteLine) map.removeLayer(fullRouteLine);
+    fullRouteLine = L.polyline(points.map(p => [p.lat, p.lng]), { color: '#6b7280', weight: 5, opacity: 0.6 }).addTo(map);
+    if (traveledRouteLine) { map.removeLayer(traveledRouteLine); traveledRouteLine = null; }
+    map.fitBounds(fullRouteLine.getBounds(), { padding: [30, 30] });
+  }
+
+  /** Punto interpolado a una distancia recorrida dada (metros) sobre routePoints/cumDistances. */
+  function pointAtDistance(distanceM) {
+    if (distanceM <= 0) return routePoints[0];
+    if (distanceM >= totalDistanceM) return routePoints[routePoints.length - 1];
+    let i = 1;
+    while (cumDistances[i] < distanceM) i++;
+    const segStart = cumDistances[i - 1], segEnd = cumDistances[i];
+    const segLen = segEnd - segStart || 1;
+    const t = (distanceM - segStart) / segLen;
+    const a = routePoints[i - 1], b = routePoints[i];
+    return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+  }
+
+  async function calcRoute() {
+    if (!origin || !destination) { log('Marca origen y destino primero.'); return; }
+
+    try {
+      const url = `/api/tracking/route?originLat=${origin.lat}&originLng=${origin.lng}&destLat=${destination.lat}&destLng=${destination.lng}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const route = await res.json();
+      routePoints = decodeGooglePolyline(route.polyline);
+      totalDistanceM = route.distanceMeters;
+      log(`Ruta real: ${(route.distanceMeters / 1000).toFixed(2)} km, ${Math.round(route.durationSeconds / 60)} min (Google Directions)`);
+    } catch (err) {
+      // Sin API key configurada o sin internet: seguimos con línea recta origen->destino,
+      // pero YA interpolada por distancia/velocidad (no es un "teleport" como antes).
+      log(`Sin ruta real (${err.message}). Usando línea recta simulada entre origen y destino.`);
+      routePoints = [origin, destination];
+      totalDistanceM = haversineMeters(origin, destination);
+    }
+
+    cumDistances = buildCumulativeDistances(routePoints);
+    drawFullRoute(routePoints);
+    document.getElementById('startSim').disabled = false;
+  }
+  document.getElementById('calcRoute').onclick = calcRoute;
+
+  function updateProgressUi(traveledM, speedMps) {
+    const pct = Math.min(100, (traveledM / totalDistanceM) * 100);
+    const remainingM = Math.max(0, totalDistanceM - traveledM);
+    const etaSec = speedMps > 0 ? remainingM / speedMps : 0;
+    document.getElementById('progressBar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('progressStats').textContent =
+      `Avance: ${pct.toFixed(0)}% · Restan ${(remainingM / 1000).toFixed(2)} km · ETA ${Math.ceil(etaSec / 60)} min`;
+  }
+
+  function drawTraveledSoFar(uptoIndexExclusive, partialPoint) {
+    const pts = routePoints.slice(0, uptoIndexExclusive).concat([partialPoint]).map(p => [p.lat, p.lng]);
+    if (traveledRouteLine) map.removeLayer(traveledRouteLine);
+    traveledRouteLine = L.polyline(pts, { color: '#22c55e', weight: 5 }).addTo(map);
+  }
+
+  function stopSim() {
+    simRunning = false;
+    if (simRafId) clearTimeout(simRafId);
+    simRafId = null;
+  }
+  document.getElementById('stopSim').onclick = () => { stopSim(); log('Recorrido detenido.'); };
+
+  function startSim() {
+    if (routePoints.length < 2) { log('Calcula una ruta primero.'); return; }
+    stopSim();
+    simRunning = true;
+    simStartTime = performance.now();
+    const speedKmh = parseFloat(document.getElementById('simSpeed').value) || 30;
+    const speedMps = speedKmh * 1000 / 3600;
+    log(`Recorrido iniciado a ${speedKmh} km/h.`);
+
+    const tick = () => {
+      if (!simRunning) return;
+      const elapsedSec = (performance.now() - simStartTime) / 1000;
+      const traveledM = speedMps * elapsedSec;
+
+      const pos = pointAtDistance(traveledM);
+      sendLocation(pos.lat, pos.lng);
+
+      // segmento actual, para pintar el tramo ya recorrido en verde
+      let idx = 1;
+      while (idx < cumDistances.length && cumDistances[idx] < traveledM) idx++;
+      drawTraveledSoFar(idx, pos);
+
+      updateProgressUi(traveledM, speedMps);
+
+      if (traveledM >= totalDistanceM) {
+        simRunning = false;
+        log('Llegó al destino.');
+        return;
+      }
+      simRafId = setTimeout(tick, 1000); // 1 ping/seg, como GPS real
+    };
+    tick();
+  }
+  document.getElementById('startSim').onclick = startSim;
 </script>
 </body>
 </html>

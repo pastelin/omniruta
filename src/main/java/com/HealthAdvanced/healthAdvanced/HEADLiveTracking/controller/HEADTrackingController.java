@@ -1,5 +1,7 @@
 package com.HealthAdvanced.healthAdvanced.HEADLiveTracking.controller;
 
+import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADGeocoding.entity.Dto.HEADRouteDto;
+import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADGeocoding.service.HEADRoutingService;
 import com.HealthAdvanced.healthAdvanced.HEADLiveTracking.dto.HEADVehicleLocationDto;
 import com.HealthAdvanced.healthAdvanced.HEADLiveTracking.service.HEADTrackingLocationService;
 import com.HealthAdvanced.healthAdvanced.HEADLiveTracking.ws.HEADTrackingWebSocketHandler;
@@ -22,6 +24,7 @@ public class HEADTrackingController {
 
     private final HEADTrackingLocationService trackingLocationService;
     private final HEADTrackingWebSocketHandler trackingWebSocketHandler;
+    private final HEADRoutingService routingService;
 
     @PostMapping("/vehicles/{vehicleId}/location")
     public ResponseEntity<HEADVehicleLocationDto> updateLocation(
@@ -49,5 +52,14 @@ public class HEADTrackingController {
     @GetMapping("/ping")
     public ResponseEntity<Map<String, Object>> ping() {
         return ResponseEntity.ok(Map.of("ok", true, "module", "HEADLiveTracking"));
+    }
+
+    /** Ruta real (sigue calles) entre origen y destino, vía Google Directions. Requiere google.maps.api.key configurada. */
+    @GetMapping("/route")
+    public ResponseEntity<HEADRouteDto> getRoute(
+            @RequestParam double originLat, @RequestParam double originLng,
+            @RequestParam double destLat, @RequestParam double destLng
+    ) {
+        return ResponseEntity.ok(routingService.routeStaffToClient(originLat, originLng, destLat, destLng));
     }
 }
