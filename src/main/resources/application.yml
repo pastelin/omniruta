@@ -44,8 +44,14 @@ head:
       ttl-seconds: 180
       ttl-seconds-admin: 7000
       clock-skew-seconds: 60
+    test-login:
+      # TEMPORAL: login de pruebas mientras se configura Firebase/registro real. Apagado por defecto.
+      enabled: ${TEST_LOGIN_ENABLED:false}
+      identifier: ${TEST_LOGIN_IDENTIFIER:test@test.com}
+      password: ${TEST_LOGIN_PASSWORD:Test1234!}
     paths:
       public-paths:
+        - /error
         - /auth/login
         - /auth/refresh
         - /auth/logout

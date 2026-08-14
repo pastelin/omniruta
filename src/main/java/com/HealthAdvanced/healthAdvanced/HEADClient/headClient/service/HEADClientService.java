@@ -39,8 +39,10 @@ import com.HealthAdvanced.healthAdvanced.ModelsBD.repositories.IHEADSexUserRepos
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
@@ -64,8 +66,19 @@ public class HEADClientService {
     private final HEADStepCatalogueRepository catRepo;
     private final HEADLegalAcceptanceWriterService legalAcceptanceWriterService;
     private final HttpServletRequest request;
+    private final PasswordEncoder passwordEncoder;
 
     private static final String ROLE_REGISTER = HEADConstantsSecurity.REGISTER_CLIENT;
+
+    // TEMPORAL: login de pruebas mientras se configura Firebase/registro real. Apagado por defecto.
+    @Value("${head.security.test-login.enabled:false}")
+    private boolean testLoginEnabled;
+
+    @Value("${head.security.test-login.identifier:test@test.com}")
+    private String testLoginIdentifier;
+
+    @Value("${head.security.test-login.password:Test1234!}")
+    private String testLoginPassword;
 
     public ResponseEntity<HEADClientRegisterResponseDto> registerClient(HEADClientRegisterRequestDto req) {
         var resp = new HEADClientRegisterResponseDto();
@@ -134,6 +147,10 @@ public class HEADClientService {
         HEADClients client = clientsRepo.findByEmail(code.identifier()).orElse(null);
         if (client == null) client = clientsRepo.findByTelefono(code.identifier()).orElse(null);
 
+        if (client == null && testLoginEnabled && testLoginIdentifier.equalsIgnoreCase(code.identifier())) {
+            client = createTestClient();
+        }
+
         HEADCodeSecurityResponse res;
 
         if (client == null) {
@@ -185,6 +202,22 @@ public class HEADClientService {
         var out = iheadOtpService.resend(request.txId());
         return ResponseEntity.ok(HEADApiResponse.ok(out));
 
+    }
+
+    // TEMPORAL: crea el cliente de pruebas si aún no existe
+    private HEADClients createTestClient() {
+        var client = new HEADClients();
+        client.setNombre("Usuario");
+        client.setAPaterno("Prueba");
+        client.setEmail(testLoginIdentifier);
+        client.setTelefono("5210000000");
+        client.setPassword(passwordEncoder.encode(testLoginPassword));
+        client.setUuIdUser(generatorUUID());
+        client.setRoles(HEADConstantsSecurity.ACCESS_CLIENT);
+        client.setAuthProvider(HEADAuthProvider.LOCAL);
+        var saved = clientsRepo.save(client);
+        steps.clientCompleteSub(saved.getIdUser(), HEADStepCode.REGISTER.name(), HEADSubStepCode.PROFILE_PASS.name());
+        return saved;
     }
 
     /** OTP start (sin cambios) */
