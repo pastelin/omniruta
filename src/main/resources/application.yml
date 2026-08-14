@@ -5,6 +5,12 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
 
+head:
+  otp:
+    # TEMPORAL: solo para pruebas (ej. Oracle Cloud sin Telnyx/SMTP). Apagado por defecto.
+    bypass-enabled: ${OTP_BYPASS_ENABLED:false}
+    master-code: ${OTP_MASTER_CODE:000000}
+
 stripe:
   webhook:
     secret: ${STRIPE_WEBHOOK_SECRET}

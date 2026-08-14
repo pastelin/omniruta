@@ -91,6 +91,10 @@ services:
       SPRING_DATA_REDIS_USERNAME: default
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
 
+      # OTP - TEMPORAL solo pruebas (quitar/poner en false cuando Telnyx/SMTP estén validados)
+      OTP_BYPASS_ENABLED: ${OTP_BYPASS_ENABLED:-false}
+      OTP_MASTER_CODE: ${OTP_MASTER_CODE:-000000}
+
       # Mail
       MAIL_USER: ${MAIL_USER}
       MAIL_PASS: ${MAIL_PASS}

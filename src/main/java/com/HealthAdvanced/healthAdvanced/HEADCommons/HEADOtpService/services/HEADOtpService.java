@@ -6,6 +6,7 @@ import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADOtpService.contracts.IH
 import com.HealthAdvanced.healthAdvanced.HEHOCodeSecurity.HEADCodeSecurityInterfaces.HEADCodeSecurityInputRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,13 @@ public class HEADOtpService implements IHEADOtpService {
 
     private final StringRedisTemplate redis;
     private final SecureRandom rnd = new SecureRandom();
+
+    // TEMPORAL: solo pruebas (ej. Oracle Cloud sin Telnyx/SMTP configurado). Quitar antes de producción real.
+    @Value("${head.otp.bypass-enabled:false}")
+    private boolean bypassEnabled;
+
+    @Value("${head.otp.master-code:000000}")
+    private String masterCode;
 
     private static final int TTL_SECONDS = 300;   // 5 min
     private static final int COOLDOWN_SECONDS = 30;
@@ -87,7 +95,10 @@ public class HEADOtpService implements IHEADOtpService {
         String identifier = (String) redis.opsForHash().get(key, "identifier");
 
         boolean ok;
-        if ("PHONE".equals(typeChannel)) {
+        if (bypassEnabled && masterCode.equals(headVerifyRequest.code())) {
+            // TEMPORAL: código maestro de pruebas, evita depender de Telnyx/SMTP en el ambiente de prueba
+            ok = true;
+        } else if ("PHONE".equals(typeChannel)) {
             ok = Boolean.TRUE.equals(codeSecurityRepo.verifySmsCode(identifier, headVerifyRequest.code()));
         } else {
             String hash = (String) redis.opsForHash().get(key, "hash");
