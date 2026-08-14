@@ -5,12 +5,6 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
 
-head:
-  otp:
-    # TEMPORAL: solo para pruebas (ej. Oracle Cloud sin Telnyx/SMTP). Apagado por defecto.
-    bypass-enabled: ${OTP_BYPASS_ENABLED:false}
-    master-code: ${OTP_MASTER_CODE:000000}
-
 stripe:
   webhook:
     secret: ${STRIPE_WEBHOOK_SECRET}
@@ -38,6 +32,10 @@ telnyx:
   verify-profile-id: 4900019d-7317-da99-6049-13f97a55aafc
 
 head:
+  otp:
+    # TEMPORAL: solo para pruebas (ej. Oracle Cloud sin Telnyx/SMTP). Apagado por defecto.
+    bypass-enabled: ${OTP_BYPASS_ENABLED:false}
+    master-code: ${OTP_MASTER_CODE:000000}
   security:
     jwt:
       secret: ${JWT_SECRET:change-me-dev-secret-32-bytes-minimum-ok}
