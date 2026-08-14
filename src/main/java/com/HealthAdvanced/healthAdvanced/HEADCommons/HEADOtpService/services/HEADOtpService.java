@@ -72,7 +72,9 @@ public class HEADOtpService implements IHEADOtpService {
         } else {
             Boolean codeSend = codeSecurityRepo.sendMessageEmail(headOtpRequest.identifier(), code);
         }
-        return new HEADOtpStarRes(txId, System.currentTimeMillis()/1000 + TTL_SECONDS, COOLDOWN_SECONDS, null);
+        // TEMPORAL: expone el código real en pruebas para no depender de SMS/email
+        String devCode = bypassEnabled ? code : null;
+        return new HEADOtpStarRes(txId, System.currentTimeMillis()/1000 + TTL_SECONDS, COOLDOWN_SECONDS, devCode);
     }
 
     @Override
