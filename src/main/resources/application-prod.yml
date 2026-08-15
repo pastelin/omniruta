@@ -1,16 +1,27 @@
 spring:
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST}
-      port: ${SPRING_DATA_REDIS_PORT}
-      username: ${SPRING_DATA_REDIS_USERNAME}
-      password: ${SPRING_DATA_REDIS_PASSWORD}
-      ssl: 
-        enabled: false
-      timeout: 2s
-      lettuce:
-        pool:
-          enabled: true
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+    data:
+        redis:
+            host: ${SPRING_DATA_REDIS_HOST}
+            port: ${SPRING_DATA_REDIS_PORT}
+            username: ${SPRING_DATA_REDIS_USERNAME}
+            password: ${SPRING_DATA_REDIS_PASSWORD}
+            ssl:
+                enabled: false
+            timeout: 2s
+            lettuce:
+                pool:
+                    enabled: true
+                    max-active: 8
+                    max-idle: 8
+                    min-idle: 0
+
+head:
+    security:
+        test-login:
+            enabled: ${TEST_LOGIN_ENABLED:false}
+            identifier: ${TEST_LOGIN_IDENTIFIER:test@test.com}
+            password: ${TEST_LOGIN_PASSWORD:Test1234!}
+
+        otp-bypass:
+            enabled: ${OTP_BYPASS_ENABLED:false}
+            master-code: ${OTP_MASTER_CODE:000000}

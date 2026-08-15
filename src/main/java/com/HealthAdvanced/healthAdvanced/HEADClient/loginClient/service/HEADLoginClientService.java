@@ -66,7 +66,8 @@ public class HEADLoginClientService {
 
     private final HEADSessionService sessionService;
 
-    // TEMPORAL: login de pruebas mientras se configura Firebase/registro real. Apagado por defecto.
+    // TEMPORAL: login de pruebas mientras se configura Firebase/registro real.
+    // Apagado por defecto.
     @Value("${head.security.test-login.enabled:false}")
     private boolean testLoginEnabled;
 
@@ -99,17 +100,20 @@ public class HEADLoginClientService {
 
         var tokens = authService.login(user.getUuIdUser());
 
-
         var appState = navigator.resolveStateForUuid(user.getUuIdUser());
 
-        // Si tu "registro completo" es equivalente a doneAll(), úsalo; si no, calcula con tus reglas.
-        var getStepCurrent = appState.stepStatus().checklist().stream().filter(steps -> equalsEnumName(HEADHeadStep.REGISTER,steps.stepName())).findFirst().orElse(null);
+        // Si tu "registro completo" es equivalente a doneAll(), úsalo; si no, calcula
+        // con tus reglas.
+        var getStepCurrent = appState.stepStatus().checklist().stream()
+                .filter(steps -> equalsEnumName(HEADHeadStep.REGISTER, steps.stepName())).findFirst().orElse(null);
 
         // 6) decidir el step a devolver considerando sesión por device + registro
 
-        final var decidedStep = sessionService.decideStep(user.getUuIdUser(), safeEnum(HEADRegStatus.class,getStepCurrent.stepName(),HEADRegStatus.NONE));
+        final var decidedStep = sessionService.decideStep(user.getUuIdUser(),
+                safeEnum(HEADRegStatus.class, getStepCurrent.stepName(), HEADRegStatus.NONE));
 
-        // 7) Busca en checklist el item que corresponde al decidedStep (puede no existir)
+        // 7) Busca en checklist el item que corresponde al decidedStep (puede no
+        // existir)
         final var checklist = appState.stepStatus().checklist(); // List<StepItem>
         final var stepItemOpt = checklist.stream()
                 .filter(s -> equalsEnumName(decidedStep, s.stepName()))
@@ -127,8 +131,7 @@ public class HEADLoginClientService {
         final var out = headClientLoginMapping.clientLoginMapDto(
                 user,
                 appState.stepStatus(), // estado completo por compatibilidad con tu mapper
-                new HEADTokenModel(tokens.getAccessToken(), tokens.getAccessExpiresAt())
-        );
+                new HEADTokenModel(tokens.getAccessToken(), tokens.getAccessExpiresAt()));
         out.setRefreshToken(tokens.getRefreshToken());
         out.setHeadAppStateDTO(appState);
         out.setStepCurrent(
@@ -136,11 +139,9 @@ public class HEADLoginClientService {
                         appState.stepStatus().doneAll(),
                         new HEADNextDTO(doneFlag, stepName, stepName, screenFlow),
                         checklist // ya es lista, no re-uses de streams
-                )
-        );
+                ));
         return ResponseEntity.ok(out);
     }
-
 
     private String normalizePhone(String raw) {
         return raw.replaceAll("[^0-9+]", "");
@@ -148,7 +149,22 @@ public class HEADLoginClientService {
 
     // TEMPORAL: crea el cliente de pruebas en el primer login si aún no existe
     private HEADClients createTestClient() {
+        // var client = new HEADClients();
+        // client.setNombre("Usuario");
+        // client.setAPaterno("Prueba");
+        // client.setEmail(testLoginIdentifier);
+        // client.setTelefono("5210000000");
+        // client.setPassword(passwordEncoder.encode(testLoginPassword));
+        // client.setUuIdUser(generatorUUID());
+        // client.setRoles(HEADConstantsSecurity.ACCESS_CLIENT);
+        // client.setAuthProvider(HEADAuthProvider.LOCAL);
+        // var saved = headClientsRepository.save(client);
+        // headStepCurrentClientInterface.clientCompleteSub(saved.getIdUser(),
+        // HEADStepCode.REGISTER.name(), HEADSubStepCode.PROFILE_PASS.name());
+        // return saved;
+
         var client = new HEADClients();
+
         client.setNombre("Usuario");
         client.setAPaterno("Prueba");
         client.setEmail(testLoginIdentifier);
@@ -157,9 +173,8 @@ public class HEADLoginClientService {
         client.setUuIdUser(generatorUUID());
         client.setRoles(HEADConstantsSecurity.ACCESS_CLIENT);
         client.setAuthProvider(HEADAuthProvider.LOCAL);
-        var saved = headClientsRepository.save(client);
-        headStepCurrentClientInterface.clientCompleteSub(saved.getIdUser(), HEADStepCode.REGISTER.name(), HEADSubStepCode.PROFILE_PASS.name());
-        return saved;
+
+        return headClientsRepository.save(client);
     }
 
     // Evita HEADBadRequestException si el nombre no coincide exactamente
@@ -168,9 +183,13 @@ public class HEADLoginClientService {
     }
 
     private static <E extends Enum<E>> E safeEnum(Class<E> type, String raw, E fallback) {
-        if (raw == null) return fallback;
-        try { return Enum.valueOf(type, raw.trim().toUpperCase()); }
-        catch (Exception ignored) { return fallback; }
+        if (raw == null)
+            return fallback;
+        try {
+            return Enum.valueOf(type, raw.trim().toUpperCase());
+        } catch (Exception ignored) {
+            return fallback;
+        }
     }
 
     public ResponseEntity<HEADApiResponse<HEADSuccessResetPassword>> resetPasswordClient(HEADResetPassword req) {
@@ -192,8 +211,7 @@ public class HEADLoginClientService {
         var result = headClientLoginMapping.clientResetPassword(appState.stepStatus());
 
         return ResponseEntity.ok(
-                HEADApiResponse.ok(result, "Password reseteado correctamente")
-        );
+                HEADApiResponse.ok(result, "Password reseteado correctamente"));
     }
 
 }
