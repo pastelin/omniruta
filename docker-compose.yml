@@ -147,13 +147,3 @@ volumes:
 networks:
   omniruta-network:
     driver: bridge
-
-    
-# OTP - TEMPORAL solo pruebas
-OTP_BYPASS_ENABLED: ${OTP_BYPASS_ENABLED:-false}
-OTP_MASTER_CODE: ${OTP_MASTER_CODE:-000000}
-
-# Login de pruebas - TEMPORAL
-TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
-TEST_LOGIN_IDENTIFIER: ${TEST_LOGIN_IDENTIFIER:-test@test.com}
-TEST_LOGIN_PASSWORD: ${TEST_LOGIN_PASSWORD:-Test1234!}
