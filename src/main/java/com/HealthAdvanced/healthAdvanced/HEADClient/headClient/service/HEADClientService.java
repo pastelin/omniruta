@@ -83,7 +83,8 @@ public class HEADClientService {
     public ResponseEntity<HEADClientRegisterResponseDto> registerClient(HEADClientRegisterRequestDto req) {
         var resp = new HEADClientRegisterResponseDto();
 
-        var sex = sexRepo.findById(req.getSexClient()).orElse(new HEADSexUser());
+        var sex = sexRepo.findById(req.getSexClient())
+                .orElseThrow(() -> new HEADBadRequestException("Tipo de sexo no válido: " + req.getSexClient()));
         var newClient = mapper.clientRegisterMap(req);
 
         // deduplicación por email o teléfono
