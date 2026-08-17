@@ -68,7 +68,9 @@ public class HEADStepCurrentClientService implements HEADStepCurrentClientInterf
     @Override
     @Transactional
     public void clientCompleteSub(Long clientId, String parentStepName, String subStepName) {
-        var parent = catRepo.findByTypeFlowAndStepName(CLIENT, parentStepName).orElseThrow();
+        var parent = catRepo.findByTypeFlowAndStepName(CLIENT, parentStepName)
+                .orElseThrow(() -> new HEADBadRequestException(
+                        "Catálogo faltante: no existe stepCatalogue typeFlow=" + CLIENT + " stepName=" + parentStepName));
         var subs   = subRepo.findByStepParent_IdCatalogueOrderByOrderNoAsc(parent.getIdCatalogue());
 
         var target = subs.stream()
@@ -164,7 +166,9 @@ public class HEADStepCurrentClientService implements HEADStepCurrentClientInterf
     @Override
     @Transactional
     public HEADStepSubCatalogue getStepSubNext(String stepName, String subStepName) {
-        var parent = catRepo.findByTypeFlowAndStepName(CLIENT, stepName).orElseThrow();
+        var parent = catRepo.findByTypeFlowAndStepName(CLIENT, stepName)
+                .orElseThrow(() -> new HEADBadRequestException(
+                        "Catálogo faltante: no existe stepCatalogue typeFlow=" + CLIENT + " stepName=" + stepName));
         var subs   = subRepo.findByStepParent_IdCatalogueOrderByOrderNoAsc(parent.getIdCatalogue());
         return subs.stream().filter(step -> step.getSubStepName().equals(subStepName)).findFirst().orElse(new HEADStepSubCatalogue());
     }
