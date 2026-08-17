@@ -222,8 +222,8 @@ function renderLegalStep() {
 async function loadLegalDocs() {
   const flow = currentFlow();
   const { ok, data } = await callApi('GET', `/api/legal/global/document/current?legalUserType=${flow.legalType}`);
-  if (ok && data && data.data) {
-    const docs = data.data;
+  if (ok && data && data.result) {
+    const docs = data.result;
     const terms = docs.find(d => d.documentType === 'TERMS');
     const privacy = docs.find(d => d.documentType === 'PRIVACY');
     state.legal.termsDocumentId = terms ? terms.id : null;
