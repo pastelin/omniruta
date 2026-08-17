@@ -91,10 +91,6 @@ services:
       SPRING_DATA_REDIS_USERNAME: default
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
 
-      # OTP - TEMPORAL solo pruebas (quitar/poner en false cuando Telnyx/SMTP estén validados)
-      OTP_BYPASS_ENABLED: ${OTP_BYPASS_ENABLED:-false}
-      OTP_MASTER_CODE: ${OTP_MASTER_CODE:-000000}
-
       # Login de pruebas - TEMPORAL mientras se configura Firebase/registro real
       TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
       TEST_LOGIN_IDENTIFIER: ${TEST_LOGIN_IDENTIFIER:-test@test.com}

@@ -21,7 +21,3 @@ head:
             enabled: ${TEST_LOGIN_ENABLED:false}
             identifier: ${TEST_LOGIN_IDENTIFIER:test@test.com}
             password: ${TEST_LOGIN_PASSWORD:Test1234!}
-
-        otp-bypass:
-            enabled: ${OTP_BYPASS_ENABLED:false}
-            master-code: ${OTP_MASTER_CODE:000000}
