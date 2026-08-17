@@ -67,6 +67,8 @@ head:
         - /tracking-demo.html
         - /ws/tracking/**
         - /api/tracking/**
+        # --- Demo flujo de onboarding (temporal, quitar/asegurar antes de producción) ---
+        - /onboarding-flow-demo.html
       by-role:
         REGISTER_PERSONAL:
           - /register/personal/**

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docarya - Flujo de Onboarding (Cliente / Personal)</title>
+<style>
+  :root {
+    --blue: #1868db;
+    --blue-dark: #0f4aa1;
+    --bg: #eef4fb;
+    --ok: #16a34a;
+    --err: #dc2626;
+    --gray: #667085;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: #1d2939; }
+  header { background: var(--blue); color: #fff; padding: 16px 24px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .9; }
+
+  .roles { display: flex; gap: 8px; padding: 12px 24px 0; }
+  .roles button {
+    flex: 1; padding: 10px; border: 1px solid var(--blue); background: #fff; color: var(--blue);
+    border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold;
+  }
+  .roles button.active { background: var(--blue); color: #fff; }
+
+  .layout { display: flex; gap: 16px; padding: 16px 24px 32px; align-items: flex-start; }
+  .stepper { width: 230px; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .stepper h3 { margin: 0 0 12px; font-size: 14px; color: var(--gray); text-transform: uppercase; }
+  .step-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; font-size: 14px; }
+  .step-item .dot {
+    min-width: 22px; height: 22px; border-radius: 50%; background: #d0d5dd; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+  }
+  .step-item.active .dot { background: var(--blue); }
+  .step-item.done .dot { background: var(--ok); }
+  .step-item.active { font-weight: bold; }
+
+  .panel { flex: 1; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 320px; }
+  .panel h2 { margin-top: 0; font-size: 18px; }
+  .why { background: #f0f6ff; border-left: 4px solid var(--blue); padding: 10px 14px; font-size: 13px; color: #344054; margin-bottom: 16px; border-radius: 4px; }
+  .endpoint { font-family: Consolas, monospace; font-size: 12px; background: #101828; color: #d9f99d; padding: 6px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px; }
+
+  label { display: block; font-size: 13px; color: var(--gray); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+
+  .actions { margin-top: 18px; display: flex; gap: 10px; }
+  .actions button { padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-secondary { background: #f2f4f7; color: #344054; }
+  .btn-secondary:disabled, .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+  .status { margin-top: 12px; font-size: 13px; padding: 8px 10px; border-radius: 6px; display: none; }
+  .status.ok { display: block; background: #ecfdf3; color: var(--ok); }
+  .status.err { display: block; background: #fef3f2; color: var(--err); }
+
+  .docs { display: flex; gap: 10px; margin-bottom: 10px; }
+  .doc-card { flex: 1; border: 1px solid #d0d5dd; border-radius: 8px; padding: 10px; font-size: 13px; }
+  .doc-card b { display: block; margin-bottom: 4px; }
+
+  .log { margin-top: 24px; }
+  .log h3 { font-size: 13px; color: var(--gray); text-transform: uppercase; }
+  #log { background: #101828; color: #d0d5dd; font-family: Consolas, monospace; font-size: 12px; padding: 12px; border-radius: 8px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Docarya · Simulador de flujo de onboarding móvil</h1>
+  <p>Sigue paso a paso lo que la app móvil debe hacer para registrar y autenticar a un Cliente o a Personal (staff).</p>
+</header>
+
+<div class="roles">
+  <button id="tabCliente" class="active" onclick="selectRole('CLIENTE')">Cliente</button>
+  <button id="tabPersonal" onclick="selectRole('PERSONAL')">Personal (Staff)</button>
+</div>
+
+<div class="layout">
+  <div class="stepper" id="stepper"></div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<div class="layout" style="padding-top:0">
+  <div class="panel log" style="width:100%">
+    <h3>Peticiones / Respuestas (para depurar como lo hará la app)</h3>
+    <div id="log">Aquí verás cada request y response en crudo...</div>
+  </div>
+</div>
+
+<script>
+// ---------- Estado global ----------
+const state = {
+  role: 'CLIENTE',
+  stepIndex: 0,
+  legal: { termsDocumentId: null, privacyDocumentId: null },
+  otp: { txId: null, identifier: null, channel: 'EMAIL' },
+  form: {}
+};
+
+// ---------- Definición de pasos por rol ----------
+const FLOWS = {
+  CLIENTE: {
+    base: '/clientRegister/v1/clients',
+    legalType: 'CLIENT',
+    steps: [
+      { key: 'legal', title: 'Aceptar avisos legales', render: renderLegalStep,
+        why: 'La app debe mostrar los documentos vigentes (Términos y Aviso de Privacidad) antes de registrar. Se obtienen sus IDs para enviarlos junto con el registro.' },
+      { key: 'otpStart', title: 'Enviar código OTP', render: renderOtpStartStep,
+        why: 'Antes de crear la cuenta, se verifica que el correo o teléfono le pertenece al usuario. La app pide el identificador y el canal (EMAIL o PHONE).' },
+      { key: 'otpVerify', title: 'Verificar código OTP', render: renderOtpVerifyStep,
+        why: 'El usuario ingresa el código recibido. Como aún no existe la cuenta, el backend regresa el siguiente sub-paso (PROFILE_PASS) indicando que ya puede completar su perfil.' },
+      { key: 'register', title: 'Completar registro', render: renderRegisterStep,
+        why: 'Con el identificador ya verificado, la app envía el resto de los datos del perfil + los IDs legales aceptados para crear la cuenta.' },
+      { key: 'login', title: 'Iniciar sesión', render: renderLoginStep,
+        why: 'En futuros accesos (no solo el primer registro), la app usa este endpoint con el email/teléfono + password para obtener el token.' }
+    ]
+  },
+  PERSONAL: {
+    base: '/personalAuthentication',
+    legalType: 'STAFF',
+    steps: [
+      { key: 'legal', title: 'Aceptar avisos legales', render: renderLegalStep,
+        why: 'Igual que en Cliente, pero con documentos legales del tipo STAFF.' },
+      { key: 'otpStart', title: 'Enviar código OTP', render: renderOtpStartStep,
+        why: 'Se valida que el correo o teléfono del postulante es real antes de registrarlo como personal.' },
+      { key: 'otpVerify', title: 'Verificar código OTP', render: renderOtpVerifyStep,
+        why: 'Al no existir aún la cuenta, el backend regresa el siguiente sub-paso para continuar con el registro de perfil.' },
+      { key: 'register', title: 'Completar registro', render: renderRegisterStep,
+        why: 'Se envían los datos de perfil del personal + IDs legales aceptados para crear la cuenta de staff.' },
+      { key: 'login', title: 'Iniciar sesión', render: renderLoginStep,
+        why: 'Para accesos posteriores, el personal inicia sesión con email/teléfono + password.' }
+    ]
+  }
+};
+
+function currentFlow() { return FLOWS[state.role]; }
+function currentStep() { return currentFlow().steps[state.stepIndex]; }
+
+// ---------- Utilidades de red ----------
+async function callApi(method, url, body) {
+  logLine(`→ ${method} ${url}` + (body ? '\n' + JSON.stringify(body, null, 2) : ''));
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const text = await res.text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { parsed = text; }
+    logLine(`← ${res.status} ${url}\n` + JSON.stringify(parsed, null, 2));
+    return { ok: res.ok, status: res.status, data: parsed };
+  } catch (e) {
+    logLine(`✕ Error de red en ${url}: ${e.message}`);
+    return { ok: false, status: 0, data: { message: e.message } };
+  }
+}
+
+function logLine(text) {
+  const el = document.getElementById('log');
+  el.textContent += (el.textContent === 'Aquí verás cada request y response en crudo...' ? '' : '\n\n') + text;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ---------- Render del stepper lateral ----------
+function renderStepper() {
+  const flow = currentFlow();
+  const el = document.getElementById('stepper');
+  el.innerHTML = '<h3>Pasos</h3>' + flow.steps.map((s, i) => {
+    const cls = i === state.stepIndex ? 'active' : (i < state.stepIndex ? 'done' : '');
+    const dot = i < state.stepIndex ? '✓' : (i + 1);
+    return `<div class="step-item ${cls}"><div class="dot">${dot}</div><div>${s.title}</div></div>`;
+  }).join('');
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById('formStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+function goTo(index) {
+  state.stepIndex = Math.max(0, Math.min(index, currentFlow().steps.length - 1));
+  renderAll();
+}
+
+function selectRole(role) {
+  state.role = role;
+  state.stepIndex = 0;
+  document.getElementById('tabCliente').classList.toggle('active', role === 'CLIENTE');
+  document.getElementById('tabPersonal').classList.toggle('active', role === 'PERSONAL');
+  renderAll();
+}
+
+function renderAll() {
+  renderStepper();
+  currentStep().render();
+}
+
+// ---------- Paso 1: Legales ----------
+function renderLegalStep() {
+  const flow = currentFlow();
+  document.getElementById('panel').innerHTML = `
+    <h2>1. ${currentStep().title}</h2>
+    <div class="why">${currentStep().why}</div>
+    <div class="endpoint">GET ${flow.base === '/clientRegister/v1/clients' ? '/api/legal/global/document/current?legalUserType=' + flow.legalType : '/api/legal/global/document/current?legalUserType=' + flow.legalType}</div>
+    <div class="docs" id="docsBox"><em>Aún no se han cargado los documentos.</em></div>
+    <div class="actions">
+      <button class="btn-secondary" onclick="loadLegalDocs()">Cargar documentos vigentes</button>
+      <button class="btn-primary" id="btnAcceptLegal" disabled onclick="goTo(state.stepIndex + 1)">Acepto, continuar</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function loadLegalDocs() {
+  const flow = currentFlow();
+  const { ok, data } = await callApi('GET', `/api/legal/global/document/current?legalUserType=${flow.legalType}`);
+  if (ok && data && data.data) {
+    const docs = data.data;
+    const terms = docs.find(d => d.documentType === 'TERMS');
+    const privacy = docs.find(d => d.documentType === 'PRIVACY');
+    state.legal.termsDocumentId = terms ? terms.id : null;
+    state.legal.privacyDocumentId = privacy ? privacy.id : null;
+
+    document.getElementById('docsBox').innerHTML = `
+      <div class="doc-card"><b>Términos (id: ${state.legal.termsDocumentId ?? 'N/A'})</b>${terms ? terms.title + ' · v' + terms.version : 'No configurado'}</div>
+      <div class="doc-card"><b>Privacidad (id: ${state.legal.privacyDocumentId ?? 'N/A'})</b>${privacy ? privacy.title + ' · v' + privacy.version : 'No configurado'}</div>
+    `;
+    document.getElementById('btnAcceptLegal').disabled = !(state.legal.termsDocumentId && state.legal.privacyDocumentId);
+    setStatus('Documentos cargados correctamente.', true);
+  } else {
+    setStatus('No se pudieron cargar los documentos legales.', false);
+  }
+}
+
+// ---------- Paso 2: OTP start ----------
+function renderOtpStartStep() {
+  document.getElementById('panel').innerHTML = `
+    <h2>2. ${currentStep().title}</h2>
+    <div class="why">${currentStep().why}</div>
+    <div class="endpoint">POST ${currentFlow().base}/otp/start</div>
+    <label>Canal</label>
+    <select id="otpChannel">
+      <option value="EMAIL">EMAIL</option>
+      <option value="PHONE">PHONE</option>
+    </select>
+    <label>Identificador (correo o teléfono)</label>
+    <input id="otpIdentifier" placeholder="correo@ejemplo.com" value="${state.otp.identifier ?? ''}">
+    <div class="actions">
+      <button class="btn-secondary" onclick="goTo(state.stepIndex - 1)">Atrás</button>
+      <button class="btn-primary" onclick="startOtp()">Enviar código</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function startOtp() {
+  const channel = document.getElementById('otpChannel').value;
+  const identifier = document.getElementById('otpIdentifier').value.trim();
+  if (!identifier) { setStatus('Ingresa un identificador válido.', false); return; }
+
+  const { ok, data } = await callApi('POST', `${currentFlow().base}/otp/start`, { identifier, channel });
+  if (ok && data && data.txId) {
+    state.otp.txId = data.txId;
+    state.otp.identifier = identifier;
+    state.otp.channel = channel;
+    setStatus(`Código enviado. txId: ${data.txId} (revisa tu correo/SMS).`, true);
+    setTimeout(() => goTo(state.stepIndex + 1), 600);
+  } else {
+    setStatus('No se pudo iniciar el OTP: ' + JSON.stringify(data), false);
+  }
+}
+
+// ---------- Paso 3: OTP verify ----------
+function renderOtpVerifyStep() {
+  document.getElementById('panel').innerHTML = `
+    <h2>3. ${currentStep().title}</h2>
+    <div class="why">${currentStep().why}</div>
+    <div class="endpoint">POST ${currentFlow().base}/otp/verify</div>
+    <label>txId</label>
+    <input id="otpTxId" value="${state.otp.txId ?? ''}">
+    <label>Código recibido (6 dígitos)</label>
+    <input id="otpCode" placeholder="123456">
+    <div class="actions">
+      <button class="btn-secondary" onclick="goTo(state.stepIndex - 1)">Atrás</button>
+      <button class="btn-secondary" onclick="resendOtp()">Reenviar código</button>
+      <button class="btn-primary" onclick="verifyOtp()">Verificar</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function verifyOtp() {
+  const txId = document.getElementById('otpTxId').value.trim();
+  const code = document.getElementById('otpCode').value.trim();
+  const body = { txId, code, isVerifiedOtp: true, isRecoveryPassword: false };
+
+  const { ok, data } = await callApi('POST', `${currentFlow().base}/otp/verify`, body);
+  if (ok) {
+    setStatus('Código verificado. El backend indica el siguiente sub-paso del flujo (ver log).', true);
+    setTimeout(() => goTo(state.stepIndex + 1), 600);
+  } else {
+    setStatus('Código incorrecto o transacción expirada: ' + JSON.stringify(data), false);
+  }
+}
+
+async function resendOtp() {
+  const txId = document.getElementById('otpTxId').value.trim();
+  const { ok, data } = await callApi('POST', `${currentFlow().base}/otp/resend`, { txId });
+  setStatus(ok ? 'Código reenviado.' : 'No se pudo reenviar: ' + JSON.stringify(data), ok);
+}
+
+// ---------- Paso 4: Registro ----------
+function renderRegisterStep() {
+  const isCliente = state.role === 'CLIENTE';
+  document.getElementById('panel').innerHTML = `
+    <h2>4. ${currentStep().title}</h2>
+    <div class="why">${currentStep().why}</div>
+    <div class="endpoint">POST ${currentFlow().base}/${isCliente ? 'saveClient' : 'registerUserPersonal'}</div>
+    <div class="row">
+      <div><label>Nombre(s)</label><input id="firstName" value="Ana"></div>
+      <div><label>Apellido</label><input id="lastName" value="Pérez"></div>
+    </div>
+    <label>Correo</label>
+    <input id="regEmail" value="${state.otp.channel === 'EMAIL' ? (state.otp.identifier ?? '') : ''}">
+    <label>Teléfono</label>
+    <input id="regPhone" value="${state.otp.channel === 'PHONE' ? (state.otp.identifier ?? '') : ''}">
+    <div class="row">
+      <div><label>Fecha nacimiento</label><input id="regBirth" type="date" value="1995-05-20"></div>
+      <div><label>Sexo (id catálogo)</label><input id="regSex" value="1"></div>
+    </div>
+    <label>Password</label>
+    <input id="regPassword" type="password" value="Test1234!">
+    <label>Idioma</label>
+    <input id="regLanguage" value="es">
+    <div class="actions">
+      <button class="btn-secondary" onclick="goTo(state.stepIndex - 1)">Atrás</button>
+      <button class="btn-primary" onclick="submitRegister()">Registrar</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function submitRegister() {
+  const isCliente = state.role === 'CLIENTE';
+  const body = {
+    [isCliente ? 'nameClient' : 'nameStaff']: document.getElementById('firstName').value + ' ' + document.getElementById('lastName').value,
+    firstName: document.getElementById('firstName').value,
+    lastName: document.getElementById('lastName').value,
+    email: document.getElementById('regEmail').value.trim(),
+    numberPhone: document.getElementById('regPhone').value.trim(),
+    birthDate: document.getElementById('regBirth').value,
+    sexClient: Number(document.getElementById('regSex').value),
+    password: document.getElementById('regPassword').value,
+    language: document.getElementById('regLanguage').value,
+    termsDocumentId: state.legal.termsDocumentId,
+    privacyDocumentId: state.legal.privacyDocumentId
+  };
+  const path = isCliente ? 'saveClient' : 'registerUserPersonal';
+  const { ok, data } = await callApi('POST', `${currentFlow().base}/${path}`, body);
+  if (ok) {
+    state.form.identifier = body.email || body.numberPhone;
+    state.form.password = body.password;
+    setStatus('Cuenta creada correctamente.', true);
+    setTimeout(() => goTo(state.stepIndex + 1), 600);
+  } else {
+    setStatus('No se pudo registrar: ' + JSON.stringify(data), false);
+  }
+}
+
+// ---------- Paso 5: Login ----------
+function renderLoginStep() {
+  const isCliente = state.role === 'CLIENTE';
+  document.getElementById('panel').innerHTML = `
+    <h2>5. ${currentStep().title}</h2>
+    <div class="why">${currentStep().why}</div>
+    <div class="endpoint">POST ${isCliente ? '/authentication/client/login' : currentFlow().base + '/loginPersonal'}</div>
+    <label>Canal</label>
+    <select id="loginChannel">
+      <option value="EMAIL">EMAIL</option>
+      <option value="PHONE">PHONE</option>
+    </select>
+    <label>Identificador</label>
+    <input id="loginIdentifier" value="${state.form.identifier ?? ''}">
+    <label>Password</label>
+    <input id="loginPassword" type="password" value="${state.form.password ?? ''}">
+    <div class="actions">
+      <button class="btn-secondary" onclick="goTo(state.stepIndex - 1)">Atrás</button>
+      <button class="btn-primary" onclick="submitLogin()">Iniciar sesión</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function submitLogin() {
+  const isCliente = state.role === 'CLIENTE';
+  const body = {
+    channel: document.getElementById('loginChannel').value,
+    identifier: document.getElementById('loginIdentifier').value.trim(),
+    password: document.getElementById('loginPassword').value
+  };
+  const url = isCliente ? '/authentication/client/login' : `${currentFlow().base}/loginPersonal`;
+  const { ok, data } = await callApi('POST', url, body);
+  setStatus(ok ? 'Sesión iniciada, revisa el token en el log.' : 'No se pudo iniciar sesión: ' + JSON.stringify(data), ok);
+}
+
+// ---------- Init ----------
+renderAll();
+</script>
+</body>
+</html>
