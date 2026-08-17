@@ -61,6 +61,9 @@ public class HEADAuthService {
     public HEADLoginResponse login(String uuidUser) {
         String deviceId = request.getHeader(HEADHeadersConstants.DEVICE_ID);
         String platform = request.getHeader(HEADHeadersConstants.PLATFORM);
+        if (deviceId == null || deviceId.isBlank()) {
+            throw new HEADBadRequestException("Falta el header " + HEADHeadersConstants.DEVICE_ID);
+        }
         String getUUID = uuidUser != null ? uuidUser : jwt.getUserNamePersonalUser();
         var getUser = headAuthLoader.loadUserOrClient(getUUID);
 

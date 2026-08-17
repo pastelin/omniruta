@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docarya - Login (Cliente / Personal)</title>
+<style>
+  :root {
+    --blue: #1868db;
+    --blue-dark: #0f4aa1;
+    --bg: #eef4fb;
+    --ok: #16a34a;
+    --err: #dc2626;
+    --gray: #667085;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: #1d2939; }
+  header { background: var(--blue); color: #fff; padding: 16px 24px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .9; }
+
+  .roles { display: flex; gap: 8px; padding: 12px 24px 0; }
+  .roles button {
+    flex: 1; padding: 10px; border: 1px solid var(--blue); background: #fff; color: var(--blue);
+    border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold;
+  }
+  .roles button.active { background: var(--blue); color: #fff; }
+
+  .layout { display: flex; gap: 16px; padding: 16px 24px 32px; align-items: flex-start; }
+  .panel { flex: 1; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 320px; }
+  .panel h2 { margin-top: 0; font-size: 18px; }
+  .why { background: #f0f6ff; border-left: 4px solid var(--blue); padding: 10px 14px; font-size: 13px; color: #344054; margin-bottom: 16px; border-radius: 4px; }
+  .endpoint { font-family: Consolas, monospace; font-size: 12px; background: #101828; color: #d9f99d; padding: 6px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px; }
+
+  label { display: block; font-size: 13px; color: var(--gray); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
+
+  .actions { margin-top: 18px; display: flex; gap: 10px; }
+  .actions button { padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-secondary { background: #f2f4f7; color: #344054; }
+
+  .status { margin-top: 12px; font-size: 13px; padding: 8px 10px; border-radius: 6px; display: none; }
+  .status.ok { display: block; background: #ecfdf3; color: var(--ok); }
+  .status.err { display: block; background: #fef3f2; color: var(--err); }
+
+  .log { margin-top: 24px; }
+  .log h3 { font-size: 13px; color: var(--gray); text-transform: uppercase; }
+  #log { background: #101828; color: #d0d5dd; font-family: Consolas, monospace; font-size: 12px; padding: 12px; border-radius: 8px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Docarya · Simulador de Login</h1>
+  <p>Simula el login de un Cliente o Personal (staff) enviando los headers de dispositivo que exige el backend.</p>
+</header>
+
+<div class="roles">
+  <button id="tabCliente" class="active" onclick="selectRole('CLIENTE')">Cliente</button>
+  <button id="tabPersonal" onclick="selectRole('PERSONAL')">Personal (Staff)</button>
+</div>
+
+<div class="layout">
+  <div class="panel" id="panel"></div>
+</div>
+
+<div class="layout" style="padding-top:0">
+  <div class="panel log" style="width:100%">
+    <h3>Peticiones / Respuestas (para depurar como lo hará la app)</h3>
+    <div id="log">Aquí verás cada request y response en crudo...</div>
+  </div>
+</div>
+
+<script>
+const state = { role: 'CLIENTE' };
+
+// headers obligatorios: sin X-Device-Id el backend rechaza el login (auth_device.device_id NOT NULL)
+const DEFAULT_DEVICE_ID = 'dummy-device-0001';
+const DEFAULT_PLATFORM = 'ANDROID';
+
+function selectRole(role) {
+  state.role = role;
+  document.getElementById('tabCliente').classList.toggle('active', role === 'CLIENTE');
+  document.getElementById('tabPersonal').classList.toggle('active', role === 'PERSONAL');
+  renderPanel();
+}
+
+function renderPanel() {
+  const isCliente = state.role === 'CLIENTE';
+  document.getElementById('panel').innerHTML = `
+    <h2>Iniciar sesión ${isCliente ? '(Cliente)' : '(Personal)'}</h2>
+    <div class="why">Esta petición incluye los headers <b>X-Device-Id</b> y <b>X-Platform</b>, requeridos para registrar el dispositivo en <code>auth_device</code>.</div>
+    <div class="endpoint">POST ${isCliente ? '/authentication/client/login' : '/personalRegister/v1/personal/loginPersonal'}</div>
+
+    <label>Canal</label>
+    <select id="loginChannel">
+      <option value="EMAIL">EMAIL</option>
+      <option value="PHONE">PHONE</option>
+    </select>
+    <label>Identificador (email o teléfono)</label>
+    <input id="loginIdentifier" placeholder="correo@dominio.com">
+    <label>Password</label>
+    <input id="loginPassword" type="password" placeholder="********">
+
+    <label>X-Device-Id</label>
+    <input id="deviceId" value="${DEFAULT_DEVICE_ID}">
+    <label>X-Platform</label>
+    <select id="platform">
+      <option value="ANDROID">ANDROID</option>
+      <option value="IOS">IOS</option>
+    </select>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="submitLogin()">Iniciar sesión</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  `;
+}
+
+async function submitLogin() {
+  const isCliente = state.role === 'CLIENTE';
+  const body = {
+    channel: document.getElementById('loginChannel').value,
+    identifier: document.getElementById('loginIdentifier').value.trim(),
+    password: document.getElementById('loginPassword').value
+  };
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Device-Id': document.getElementById('deviceId').value.trim(),
+    'X-Platform': document.getElementById('platform').value
+  };
+  const url = isCliente ? '/authentication/client/login' : '/personalRegister/v1/personal/loginPersonal';
+
+  logLine(`→ POST ${url}\nHeaders: ` + JSON.stringify(headers, null, 2) + '\nBody: ' + JSON.stringify(body, null, 2));
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    const text = await res.text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { parsed = text; }
+    logLine(`← ${res.status} ${url}\n` + JSON.stringify(parsed, null, 2));
+    setStatus(res.ok ? 'Sesión iniciada, revisa el token en el log.' : 'No se pudo iniciar sesión: ' + JSON.stringify(parsed), res.ok);
+  } catch (e) {
+    logLine(`✕ Error de red en ${url}: ${e.message}`);
+    setStatus('Error de red: ' + e.message, false);
+  }
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById('formStatus');
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+function logLine(text) {
+  const el = document.getElementById('log');
+  el.textContent += (el.textContent === 'Aquí verás cada request y response en crudo...' ? '' : '\n\n') + text;
+  el.scrollTop = el.scrollHeight;
+}
+
+renderPanel();
+</script>
+</body>
+</html>
