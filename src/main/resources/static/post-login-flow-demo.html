@@ -159,6 +159,15 @@ async function callApi(method, url, body, headers) {
   }
 }
 
+// Headers que la app real siempre manda; el login NO los exige (ruta pública),
+// pero se incluyen para que el request se parezca al de la app móvil.
+const DEVICE_HEADERS = {
+  'X-Device-Id': 'dummy-device-0001',
+  'X-Platform': 'ANDROID',
+  'X-App-Version': '1.0.0',
+  'X-App-Build': '1'
+};
+
 async function doLogin() {
   const body = {
     channel: document.getElementById('loginChannel').value,
@@ -167,7 +176,7 @@ async function doLogin() {
   };
   if (!body.identifier || !body.password) { setStatus('Ingresa identificador y password.', false); return; }
 
-  const { ok, data } = await callApi('POST', currentFlow().loginUrl, body);
+  const { ok, data } = await callApi('POST', currentFlow().loginUrl, body, DEVICE_HEADERS);
   if (!ok) { setStatus('No se pudo iniciar sesión: ' + JSON.stringify(data), false); return; }
 
   state.accessToken = data.accessToken || null;
@@ -183,13 +192,10 @@ async function callAppState() {
   const path = state.role === 'CLIENTE' ? '/app/state/client' : '/app/state/staff';
 
   // /app/state/* NO es ruta pública: exige el JWT + los headers obligatorios del proyecto.
-  const { ok, data } = await callApi('GET', path, null, {
-    'Authorization': 'Bearer ' + state.accessToken,
-    'X-Device-Id': 'demo-device-1',
-    'X-Platform': 'web',
-    'X-App-Version': '1.0.0',
-    'X-App-Build': '1'
-  });
+  const { ok, data } = await callApi('GET', path, null, Object.assign(
+    { 'Authorization': 'Bearer ' + state.accessToken },
+    DEVICE_HEADERS
+  ));
 
   setStatus(ok ? 'Servicio activo obtenido, revisa el log.' : 'Sin servicio activo o error: ' + JSON.stringify(data), ok);
 }
