@@ -50,7 +50,7 @@ public class HEADAppNavigatorService {
             var c = cOpt.get();
             var stepStatus = clientSteps.statusClient(c.getIdUser()); // ya lo tienes
             boolean regDone = isRegistrationDone(FLOW_CLIENT, c.getIdUser());
-            var active = currentServiceService.peekClientActive(c.getIdUser());
+            var active = currentServiceService.peekClientActive(c.getUuIdUser());
 
             String role = normalizeRole(c.getRoles());
             String goTo = decideScreen(FLOW_CLIENT, regDone, stepStatus, active);
@@ -71,7 +71,7 @@ public class HEADAppNavigatorService {
             var s = sOpt.get();
             var stepStatus = staffSteps.statusStaff(s.getIdUser());
             boolean regDone = isRegistrationDone(FLOW_STAFF, s.getIdUser());
-            var active = currentServiceService.peekStaffActive(s.getIdUser());
+            var active = currentServiceService.peekStaffActive(s.getUidUser());
 
             String role = normalizeRole(s.getRoles());
             String goTo = decideScreen(FLOW_STAFF, regDone, stepStatus, active);

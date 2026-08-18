@@ -32,7 +32,7 @@ public class HEADAppStateBuilder {
 
     public HEADAppStateDTO buildForClient(HEADClients c, HEADStatusResponseDTO stepStatus) {
         boolean registrationDone = isRegistrationDone("CLIENT", c.getIdUser());
-        HEADCurrentService active = currentServiceService.peekClientActive(c.getIdUser());
+        HEADCurrentService active = currentServiceService.peekClientActive(c.getUuIdUser());
         String role = normalizeRole(c.getRoles());
         String goTo = navigationPolicy.computeGoToScreen("CLIENT", registrationDone, stepStatus, active);
 
@@ -54,7 +54,7 @@ public class HEADAppStateBuilder {
 
     public HEADAppStateDTO buildForStaff(HEADPersonalUser s, HEADStatusResponseDTO stepStatus) {
         boolean registrationDone = isRegistrationDone("STAFF", s.getIdUser());
-        HEADCurrentService active = currentServiceService.peekStaffActive(s.getIdUser());
+        HEADCurrentService active = currentServiceService.peekStaffActive(s.getUidUser());
         String role = normalizeRole(s.getRoles());
         String goTo = navigationPolicy.computeGoToScreen("STAFF", registrationDone, stepStatus, active);
 

@@ -70,6 +70,7 @@ head:
         # --- Demo flujo de onboarding (temporal, quitar/asegurar antes de producción) ---
         - /onboarding-flow-demo.html
         - /login-demo.html
+        - /post-login-flow-demo.html
       by-role:
         REGISTER_PERSONAL:
           - /register/personal/**

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docarya - Qué pasa después del login</title>
+<style>
+  :root { --blue:#1868db; --blue-dark:#0f4aa1; --bg:#eef4fb; --ok:#16a34a; --err:#dc2626; --gray:#667085; --warn:#b45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color:#1d2939; }
+  header { background: var(--blue); color:#fff; padding:16px 24px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.9; }
+
+  .roles { display:flex; gap:8px; padding:12px 24px 0; }
+  .roles button { flex:1; padding:10px; border:1px solid var(--blue); background:#fff; color:var(--blue); border-radius:8px 8px 0 0; cursor:pointer; font-weight:bold; }
+  .roles button.active { background: var(--blue); color:#fff; }
+
+  .layout { display:flex; gap:16px; padding:16px 24px; align-items:flex-start; flex-wrap:wrap; }
+  .card { flex:1; min-width:320px; background:#fff; border-radius:10px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .card h2 { margin-top:0; font-size:16px; }
+  .why { background:#f0f6ff; border-left:4px solid var(--blue); padding:10px 14px; font-size:13px; color:#344054; margin-bottom:16px; border-radius:4px; }
+
+  label { display:block; font-size:13px; color:var(--gray); margin:10px 0 4px; }
+  input, select { width:100%; padding:8px 10px; border:1px solid #d0d5dd; border-radius:6px; font-size:14px; }
+
+  .actions { margin-top:18px; display:flex; gap:10px; }
+  .actions button { padding:10px 18px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; }
+  .btn-primary { background: var(--blue); color:#fff; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-secondary { background:#f2f4f7; color:#344054; }
+  .btn-primary:disabled, .btn-secondary:disabled { opacity:.5; cursor:not-allowed; }
+
+  .status { margin-top:12px; font-size:13px; padding:8px 10px; border-radius:6px; display:none; }
+  .status.ok { display:block; background:#ecfdf3; color:var(--ok); }
+  .status.err { display:block; background:#fef3f2; color:var(--err); }
+
+  .screen-mock { margin-top:16px; border:2px dashed #d0d5dd; border-radius:10px; padding:20px; text-align:center; }
+  .screen-mock .icon { font-size:34px; }
+  .screen-mock .title { font-weight:bold; font-size:16px; margin-top:6px; }
+  .screen-mock .sub { font-size:12px; color:var(--gray); margin-top:4px; }
+  .screen-mock.home { background:#f8fafc; }
+  .screen-mock.registro { background:#fffbeb; border-color:var(--warn); }
+  .screen-mock.espera { background:#fef3f2; border-color:var(--err); }
+  .screen-mock.tracking { background:#ecfdf3; border-color:var(--ok); }
+  .screen-mock.curso { background:#eff6ff; border-color:var(--blue); }
+
+  .kv { font-size:13px; margin-top:14px; }
+  .kv div { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #f2f4f7; }
+  .kv b { color:#344054; }
+
+  .log { margin-top:24px; }
+  .log h3 { font-size:13px; color:var(--gray); text-transform:uppercase; }
+  #log { background:#101828; color:#d0d5dd; font-family:Consolas, monospace; font-size:12px; padding:12px; border-radius:8px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Docarya · Qué pasa después del login</h1>
+  <p>Inicia sesión y observa cómo el backend decide a qué pantalla debería mandarte la app (goToScreen), usando el fix de HEADCurrentServiceService + HEADJobService.</p>
+</header>
+
+<div class="roles">
+  <button id="tabCliente" class="active" onclick="selectRole('CLIENTE')">Cliente</button>
+  <button id="tabPersonal" onclick="selectRole('PERSONAL')">Personal (Staff)</button>
+</div>
+
+<div class="layout">
+  <div class="card">
+    <h2>1. Iniciar sesión</h2>
+    <div class="why" id="loginWhy"></div>
+    <div class="endpoint" style="font-family:Consolas,monospace;font-size:12px;background:#101828;color:#d9f99d;padding:6px 10px;border-radius:6px;display:inline-block;margin-bottom:12px" id="loginEndpoint"></div>
+
+    <label>Canal</label>
+    <select id="loginChannel"><option value="EMAIL">EMAIL</option><option value="PHONE">PHONE</option></select>
+    <label>Identificador (correo o teléfono)</label>
+    <input id="loginIdentifier" placeholder="correo@ejemplo.com">
+    <label>Password</label>
+    <input id="loginPassword" type="password" placeholder="********">
+
+    <div class="actions">
+      <button class="btn-primary" onclick="doLogin()">Iniciar sesión</button>
+      <button class="btn-secondary" onclick="callAppState()" id="btnAppState" disabled>Consultar /app/state/*</button>
+    </div>
+    <div id="formStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Pantalla a la que te manda la app (goToScreen)</h2>
+    <div class="why">
+      HEADAppNavigatorService.resolveStateForUuid() decide esto en cada login combinando:
+      registro completo o no (stepStatus) + servicio activo o no (HEADCurrentServiceService → HEADJobService.currentForClient/Staff).
+    </div>
+    <div id="screenMock" class="screen-mock home">
+      <div class="icon">🔒</div>
+      <div class="title">Aún no has iniciado sesión</div>
+      <div class="sub">Aquí se dibujará la pantalla destino tras el login</div>
+    </div>
+    <div class="kv" id="stateKv"></div>
+  </div>
+</div>
+
+<div class="layout" style="padding-top:0">
+  <div class="card log" style="width:100%">
+    <h3>Peticiones / Respuestas (para depurar como lo hará la app)</h3>
+    <div id="log">Aquí verás cada request y response en crudo...</div>
+  </div>
+</div>
+
+<script>
+const state = { role: 'CLIENTE', accessToken: null, appState: null };
+
+const FLOWS = {
+  CLIENTE: { loginUrl: '/authentication/client/login',
+    why: 'El cliente inicia sesión con su correo/teléfono + password. Detrás, HEADLoginClientService llama a HEADAppNavigatorService.resolveStateForUuid(uuid) para calcular goToScreen.' },
+  PERSONAL: { loginUrl: '/personalAuthentication/loginPersonal',
+    why: 'El personal (staff) usa el mismo mecanismo: HEADPersonalService.loginPersonal() también llama a navigator.resolveStateForUuid(uuid).' }
+};
+
+function currentFlow() { return FLOWS[state.role]; }
+
+function selectRole(role) {
+  state.role = role;
+  document.getElementById('tabCliente').classList.toggle('active', role === 'CLIENTE');
+  document.getElementById('tabPersonal').classList.toggle('active', role === 'PERSONAL');
+  document.getElementById('loginWhy').textContent = currentFlow().why;
+  document.getElementById('loginEndpoint').textContent = 'POST ' + currentFlow().loginUrl;
+  resetScreenMock();
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById('formStatus');
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+function logLine(text) {
+  const el = document.getElementById('log');
+  el.textContent += (el.textContent === 'Aquí verás cada request y response en crudo...' ? '' : '\n\n') + text;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function callApi(method, url, body, headers) {
+  logLine(`→ ${method} ${url}` + (body ? '\n' + JSON.stringify(body, null, 2) : ''));
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const text = await res.text();
+    let parsed; try { parsed = JSON.parse(text); } catch { parsed = text; }
+    logLine(`← ${res.status} ${url}\n` + JSON.stringify(parsed, null, 2));
+    return { ok: res.ok, status: res.status, data: parsed };
+  } catch (e) {
+    logLine(`✕ Error de red en ${url}: ${e.message}`);
+    return { ok: false, status: 0, data: { message: e.message } };
+  }
+}
+
+async function doLogin() {
+  const body = {
+    channel: document.getElementById('loginChannel').value,
+    identifier: document.getElementById('loginIdentifier').value.trim(),
+    password: document.getElementById('loginPassword').value
+  };
+  if (!body.identifier || !body.password) { setStatus('Ingresa identificador y password.', false); return; }
+
+  const { ok, data } = await callApi('POST', currentFlow().loginUrl, body);
+  if (!ok) { setStatus('No se pudo iniciar sesión: ' + JSON.stringify(data), false); return; }
+
+  state.accessToken = data.accessToken || null;
+  state.appState = data.headAppStateDTO || null;
+  document.getElementById('btnAppState').disabled = !state.appState;
+
+  setStatus('Sesión iniciada. Revisa el panel derecho y el log.', true);
+  renderScreenMock();
+}
+
+async function callAppState() {
+  if (!state.accessToken) { setStatus('Primero inicia sesión.', false); return; }
+  const path = state.role === 'CLIENTE' ? '/app/state/client' : '/app/state/staff';
+
+  // /app/state/* NO es ruta pública: exige el JWT + los headers obligatorios del proyecto.
+  const { ok, data } = await callApi('GET', path, null, {
+    'Authorization': 'Bearer ' + state.accessToken,
+    'X-Device-Id': 'demo-device-1',
+    'X-Platform': 'web',
+    'X-App-Version': '1.0.0',
+    'X-App-Build': '1'
+  });
+
+  setStatus(ok ? 'Servicio activo obtenido, revisa el log.' : 'Sin servicio activo o error: ' + JSON.stringify(data), ok);
+}
+
+function resetScreenMock() {
+  const el = document.getElementById('screenMock');
+  el.className = 'screen-mock home';
+  el.innerHTML = `<div class="icon">🔒</div><div class="title">Aún no has iniciado sesión</div><div class="sub">Aquí se dibujará la pantalla destino tras el login</div>`;
+  document.getElementById('stateKv').innerHTML = '';
+}
+
+function classify(goToScreen) {
+  const s = (goToScreen || '').toUpperCase();
+  if (s.includes('TRACKING') || s.includes('NAVIGATION')) return { cls: 'tracking', icon: '🗺️', title: 'Rastreo en vivo del staff', sub: 'Aquí engancharía el módulo HEADLiveTracking (mapa + WebSocket).' };
+  if (s.includes('CONFIRMATION') || s.includes('OFFER')) return { cls: 'espera', icon: '⏳', title: 'Esperando confirmación', sub: 'El job está OFFERED/PENDING: aún no hay staff en camino.' };
+  if (s.includes('IN_PROGRESS') || s.includes('TASKS')) return { cls: 'curso', icon: '🩺', title: 'Servicio en curso', sub: 'El staff ya llegó y el servicio está STARTED/PAUSED.' };
+  if (s.includes('HOME')) return { cls: 'home', icon: '🏠', title: 'Home', sub: 'No hay servicio activo ni registro pendiente.' };
+  return { cls: 'registro', icon: '📝', title: 'Continuar registro', sub: 'El registro no está completo: siguiente pantalla → ' + goToScreen };
+}
+
+function renderScreenMock() {
+  const as = state.appState;
+  if (!as) { resetScreenMock(); return; }
+
+  const info = classify(as.goToScreen);
+  const el = document.getElementById('screenMock');
+  el.className = 'screen-mock ' + info.cls;
+  el.innerHTML = `<div class="icon">${info.icon}</div><div class="title">${info.title}</div><div class="sub">${info.sub}</div>`;
+
+  document.getElementById('stateKv').innerHTML = `
+    <div><span>goToScreen</span><b>${as.goToScreen}</b></div>
+    <div><span>registrationDone</span><b>${as.registrationDone}</b></div>
+    <div><span>hasActiveService</span><b>${as.hasActiveService}</b></div>
+    <div><span>currentServiceId</span><b>${as.currentServiceId ?? '—'}</b></div>
+    <div><span>currentServiceStatus</span><b>${as.currentServiceStatus ?? '—'}</b></div>
+  `;
+}
+
+selectRole('CLIENTE');
+</script>
+</body>
+</html>

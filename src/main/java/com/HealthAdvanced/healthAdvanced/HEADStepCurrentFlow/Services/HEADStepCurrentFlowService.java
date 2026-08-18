@@ -1,10 +1,12 @@
 package com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.Services;
 
+import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADNavigations.service.HEADCurrentServiceService;
 import com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.Dtos.*;
 import com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.Enums.HEADSubStepCode;
 import com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.Interfaces.HEADStepCurrentFlowInterface;
 import com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.ModelsBD.HEADStepCurrentCatalogue;
 import com.HealthAdvanced.healthAdvanced.HEADStepCurrentFlow.ModelsBD.HEADStepSubCatalogue;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +18,11 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class HEADStepCurrentFlowService implements HEADStepCurrentFlowInterface {
+
+    private final HEADCurrentServiceService currentServiceService;
+
     @Override
     public HEADStatusResponseDTO computeStatusFunctional(
             Boolean isClient,
@@ -83,12 +89,10 @@ public class HEADStepCurrentFlowService implements HEADStepCurrentFlowInterface 
         return new HEADStatusResponseDTO(doneAll, next, checklist);
     }
 
-    public HEADCurrentService peekClientActive(Long clientId) {
-        // TODO: Consulta orden/servicio activo del cliente si existe; si no, retorna null
-        return null;
+    public HEADCurrentService peekClientActive(String clientUuid) {
+        return currentServiceService.peekClientActive(clientUuid);
     }
-    public HEADCurrentService peekStaffActive(Long staffId) {
-        // TODO: Consulta asignación activa del staff si existe; si no, retorna null
-        return null;
+    public HEADCurrentService peekStaffActive(String staffUuid) {
+        return currentServiceService.peekStaffActive(staffUuid);
     }
 }
