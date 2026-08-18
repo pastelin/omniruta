@@ -98,6 +98,7 @@
       <div class="sub">Aquí se dibujará la pantalla destino tras el login</div>
     </div>
     <div class="kv" id="stateKv"></div>
+    <button class="btn-secondary" id="btnConfirmSuccess" style="display:none" onclick="confirmSuccessRegister()">✅ Confirmar SuccessScreen (GET /clientSuccess/registerFinal)</button>
   </div>
 </div>
 
@@ -200,6 +201,19 @@ async function callAppState() {
   setStatus(ok ? 'Servicio activo obtenido, revisa el log.' : 'Sin servicio activo o error: ' + JSON.stringify(data), ok);
 }
 
+/** Cierra el sub-paso SUCCESS_REGISTER: la app real debe llamar esto justo al mostrar la pantalla de éxito. */
+async function confirmSuccessRegister() {
+  if (!state.accessToken) { setStatus('Primero inicia sesión.', false); return; }
+
+  const { ok, data } = await callApi('GET', '/clientSuccess/registerFinal', null, Object.assign(
+    { 'Authorization': 'Bearer ' + state.accessToken },
+    DEVICE_HEADERS
+  ));
+  if (!ok) { setStatus('No se pudo confirmar: ' + JSON.stringify(data), false); return; }
+
+  setStatus('SUCCESS_REGISTER confirmado. Vuelve a iniciar sesión para ver el nuevo goToScreen.', true);
+}
+
 function resetScreenMock() {
   const el = document.getElementById('screenMock');
   el.className = 'screen-mock home';
@@ -232,6 +246,10 @@ function renderScreenMock() {
     <div><span>currentServiceId</span><b>${as.currentServiceId ?? '—'}</b></div>
     <div><span>currentServiceStatus</span><b>${as.currentServiceStatus ?? '—'}</b></div>
   `;
+
+  // SUCCESS_REGISTER solo se marca completo si la app confirma haber mostrado esta pantalla.
+  document.getElementById('btnConfirmSuccess').style.display =
+    (as.goToScreen === 'SuccessScreen') ? 'block' : 'none';
 }
 
 selectRole('CLIENTE');
