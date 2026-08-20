@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -147,6 +146,10 @@ public class HEADPromotionsMap {
     @Transactional
     public HEADPromoTags buildServiceTag(Long profileId) {
         var getServiceInfo = fileAssetService.findByOwnerTypeAndCategory(HEADOwnerType.SYSTEM,HEADCategory.SERVICE_ICON);
-        return parseTagsJson(Objects.requireNonNull(getServiceInfo.stream().filter(assets -> assets.getOwnerId() == profileId.longValue()).findFirst().orElse(null)).getTags());
+        var asset = getServiceInfo.stream()
+                .filter(assets -> assets.getOwnerId() == profileId.longValue())
+                .findFirst()
+                .orElse(new HEADFileAsset());
+        return parseTagsJson(asset.getTags());
     }
 }
