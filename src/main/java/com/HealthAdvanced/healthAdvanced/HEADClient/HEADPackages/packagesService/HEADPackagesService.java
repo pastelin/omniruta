@@ -150,8 +150,12 @@ public class HEADPackagesService {
                 .toList();
 
         HEADPromoTags tagCurrent = headPromotionsService.getTagsServices(profileId);
+        // Gradiente de respaldo si el perfil no tiene tags configurados (sin icon_key/tags en file_assets)
+        List<String> gradientHex = (tagCurrent != null && tagCurrent.gradientHex != null)
+                ? tagCurrent.gradientHex
+                : List.of("#2563EB", "#1868DB");
         HEADServiceProfileResponse profile =
-                headPackagesMaps.getOccupationCurrent(profileId, tagCurrent.gradientHex);
+                headPackagesMaps.getOccupationCurrent(profileId, gradientHex);
 
         return new HEADPackageAvailableResponse(profile, packagesCurrent);
     }

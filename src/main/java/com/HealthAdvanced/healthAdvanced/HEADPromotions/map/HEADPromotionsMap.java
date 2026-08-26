@@ -147,7 +147,7 @@ public class HEADPromotionsMap {
     public HEADPromoTags buildServiceTag(Long profileId) {
         var getServiceInfo = fileAssetService.findByOwnerTypeAndCategory(HEADOwnerType.SYSTEM,HEADCategory.SERVICE_ICON);
         var asset = getServiceInfo.stream()
-                .filter(assets -> assets.getOwnerId() == profileId.longValue())
+                .filter(assets -> profileId.equals(assets.getOwnerId()))
                 .findFirst()
                 .orElse(new HEADFileAsset());
         return parseTagsJson(asset.getTags());
