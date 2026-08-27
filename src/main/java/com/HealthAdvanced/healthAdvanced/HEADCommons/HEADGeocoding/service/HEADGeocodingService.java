@@ -50,7 +50,7 @@ public class HEADGeocodingService {
                                 })
                 )
                 .bodyToMono(HEADGoogleGeocodeResponse.class)
-                .map(this::extractAddressFromObject)
+                .mapNotNull(this::extractAddressFromObject)
                 .timeout(java.time.Duration.ofSeconds(2))
                 .onErrorResume(ex -> {
                     log.warn("[GEO] falló geocode latlng={} err={}", latlng, ex.toString());
@@ -68,7 +68,6 @@ public class HEADGeocodingService {
         var street = results.stream()
                 .filter(r -> r.types() != null && r.types().contains("street_address"))
                 .map(HEADGoogleResult::formatted_address)
-                .filter(Objects::nonNull)
                 .findFirst();
 
         if (street.isPresent()) return street.get();
@@ -124,3 +123,4 @@ public class HEADGeocodingService {
         return Optional.of(number != null ? route + " " + number : route);
     }
 }
+   

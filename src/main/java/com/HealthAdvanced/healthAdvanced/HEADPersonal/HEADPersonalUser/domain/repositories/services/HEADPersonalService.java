@@ -189,6 +189,7 @@ public class HEADPersonalService implements HEADPersonalUserMapServiceInterface 
         );
         resp.setTokenSuccess(session.getAccessToken());
         resp.setExpiresAt(session.getExpiresAt());
+        resp.setRefreshToken(session.getRefreshToken());
         return ResponseEntity.ok(resp);
     }
 
