@@ -107,7 +107,7 @@ head:
           - /app/state
           - /api/payments/**
           - /api/chat/v1/**
-          - /api/push/**
+          - /api/push/register
           - /api/client/prescriptions/**
           - /dashboard/v1/**
           - /api/me/**

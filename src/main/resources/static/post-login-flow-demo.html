@@ -205,13 +205,16 @@ async function callAppState() {
 async function confirmSuccessRegister() {
   if (!state.accessToken) { setStatus('Primero inicia sesión.', false); return; }
 
-  const { ok, data } = await callApi('GET', '/clientSuccess/registerFinal', null, Object.assign(
+  const path = state.role === 'CLIENTE' ? '/clientSuccess/registerFinal' : '/personalAuthentication/registerFinal';
+  const { ok, data } = await callApi('GET', path, null, Object.assign(
     { 'Authorization': 'Bearer ' + state.accessToken },
     DEVICE_HEADERS
   ));
   if (!ok) { setStatus('No se pudo confirmar: ' + JSON.stringify(data), false); return; }
 
-  setStatus('SUCCESS_REGISTER confirmado. Vuelve a iniciar sesión para ver el nuevo goToScreen.', true);
+  // El endpoint regresa una sesión nueva (accessToken/refreshToken) ya con el rol promovido.
+  state.accessToken = data.accessToken || state.accessToken;
+  setStatus('SUCCESS_REGISTER confirmado. Token actualizado en memoria; consulta /app/state/* para verlo.', true);
 }
 
 function resetScreenMock() {
