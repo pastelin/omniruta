@@ -1,9 +1,11 @@
 package com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.services;
 
 import com.HealthAdvanced.healthAdvanced.HEADClient.headClient.Entity.response.HEADSuccessResetPassword;
+import com.HealthAdvanced.healthAdvanced.HEADClient.headClient.Entity.response.HEADSuccessRegisterDto;
 import com.HealthAdvanced.healthAdvanced.HEADClient.headClient.enums.HEADAuthProvider;
 import com.HealthAdvanced.healthAdvanced.HEADClient.loginClient.entity.request.HEADLoginPasswordRequest;
 import com.HealthAdvanced.healthAdvanced.HEADClient.loginClient.entity.request.HEADResetPassword;
+import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADAutenticationToken.HEADJwtGenerator;
 import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADAutenticationToken.HEADTokenModel;
 import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADAutenticationToken.service.HEADAuthService;
 import com.HealthAdvanced.healthAdvanced.HEADCommons.HEADAuthentication.HEADAutenticationToken.service.HEADAuthSessionBuilder;
@@ -45,6 +47,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 import static com.HealthAdvanced.healthAdvanced.HEADCommons.HEADUtils.HEADCommonsUtils.generatorUUID;
 
 @Service
@@ -64,6 +68,7 @@ public class HEADPersonalService implements HEADPersonalUserMapServiceInterface 
     private final HEADStepCatalogueRepository catRepo;
     private final HEADLegalAcceptanceWriterService legalAcceptanceWriterService;
     private final HttpServletRequest request;
+    private final HEADJwtGenerator jwt;
 
     private static final String ROLE_REGISTER = HEADConstantsSecurity.REGISTER_PERSONAL;
 
@@ -248,6 +253,29 @@ public class HEADPersonalService implements HEADPersonalUserMapServiceInterface 
         var out = otpService.resend(request.txId());
         return ResponseEntity.ok(HEADApiResponse.ok(out));
 
+    }
+
+    /** Equivalente staff de HEADClientService.successRegister(): cierra SUCCESS_REGISTER y entrega sesión. */
+    public ResponseEntity<?> successRegisterStaff() {
+        String uuid = jwt.getUserNamePersonalUser();
+        var staff = userRepo.findByUidUser(uuid)
+                .orElseThrow(() -> new HEADBadRequestException("No eres personal, favor de ingresar tus datos correctamente"));
+
+        var stepStatus = steps.statusStaff(staff.getIdUser());
+        if (Objects.equals(stepStatus.next().subStepName(), HEADSubStepCode.SUCCESS_REGISTER.name())) {
+            steps.staffCompleteSub(staff.getIdUser(), HEADStepCode.REGISTER.name(), HEADSubStepCode.SUCCESS_REGISTER.name());
+            var stepStatusNext = steps.statusStaff(staff.getIdUser());
+            var tokens = authService.login(uuid);
+
+            var success = new HEADSuccessRegisterDto();
+            success.setStepCurrent(stepStatusNext);
+            success.setAccessToken(tokens.getAccessToken());
+            success.setExpiresAt(tokens.getAccessExpiresAt());
+            success.setRefreshToken(tokens.getRefreshToken());
+            return new ResponseEntity<>(success, HttpStatus.OK);
+        }
+
+        throw new HEADBadRequestException("Te faltan pasos para terminar tu registro");
     }
 
     private String normalizePhone(String raw) {

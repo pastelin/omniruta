@@ -60,6 +60,12 @@ public class HEADPersonalUserAuthenticationController implements IHEADPersonalUs
         return personalService.resendCode(request);
     }
 
+    /** Debe llamarse justo al mostrar la pantalla de éxito del registro (cierra SUCCESS_REGISTER). */
+    @GetMapping("/registerFinal")
+    public ResponseEntity<?> registerFinal() {
+        return personalService.successRegisterStaff();
+    }
+
     @PostMapping("/google")
     public ResponseEntity<HEADApiResponse<HEADStaffRegisterResponseDto>> registerWithGoogle(
             @RequestBody HEADGoogleAuthRequest request
