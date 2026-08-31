@@ -98,6 +98,10 @@ public class HEADFcmClient {
         }
 
         try {
+            if (props.serviceAccount() == null) {
+                throw new HEADBusinessException("FCM deshabilitado: falta configurar fcm.service-account (HEAD_FCM_SERVICE_ACCOUNT_PATH)");
+            }
+
             GoogleCredentials cred = GoogleCredentials
                     .fromStream(props.serviceAccount().getInputStream())
                     .createScoped(List.of("https://www.googleapis.com/auth/firebase.messaging"));
