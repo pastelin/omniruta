@@ -33,8 +33,11 @@ public class HEADAuthEntryPoint implements AuthenticationEntryPoint {
         String folio = HEADFolioUtils.getFolio(request);
         response.setHeader(HEADCorrelationIdFilter.HEADER_NAME, folio);
 
-        log.warn("401 Unauthorized folio={} path={} reason={}",
-                folio, request.getRequestURI(), authException.getMessage());
+        log.warn("401 Unauthorized folio={} method={} path={} authHeaderPresent={} reason={} cause={}",
+                folio, request.getMethod(), request.getRequestURI(),
+                request.getHeader("Authorization") != null,
+                authException.getMessage(),
+                authException.getCause() != null ? authException.getCause().toString() : "null");
 
         HEADApiError body = new HEADApiError(
                 OffsetDateTime.now().toString(),

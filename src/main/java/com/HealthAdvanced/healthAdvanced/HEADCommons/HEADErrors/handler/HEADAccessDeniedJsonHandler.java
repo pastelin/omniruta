@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
@@ -32,8 +33,12 @@ public class HEADAccessDeniedJsonHandler implements AccessDeniedHandler {
 
         String folio = HEADFolioUtils.getFolio(request);
 
-        log.warn("403 Forbidden folio={} path={} reason={}",
-                folio, request.getRequestURI(), accessDeniedException.getMessage());
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        log.warn("403 Forbidden folio={} method={} path={} principal={} authorities={} reason={}",
+                folio, request.getMethod(), request.getRequestURI(),
+                auth != null ? auth.getName() : "null",
+                auth != null ? auth.getAuthorities() : "null",
+                accessDeniedException.getMessage());
 
         HEADApiError body = new HEADApiError(
                 OffsetDateTime.now().toString(),
