@@ -57,7 +57,11 @@ public class HEADJobController {
     @PostMapping("/availability")
     public HEADStaffStateDto setAvailability(@RequestBody HEADAvailabilityRequest req) {
         var response = svc.setAvailability(req);
-        log.info("[STAFF_AVAILABILITY] requestOnline={} response={}", req.online(), response);
+        log.info("[STAFF_AVAILABILITY] request={} principal={} authorities={} response={}",
+                req,
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName(),
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getAuthorities(),
+                response);
         return response;
     }
 

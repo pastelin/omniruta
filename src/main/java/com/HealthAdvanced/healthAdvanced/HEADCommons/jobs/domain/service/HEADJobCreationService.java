@@ -73,6 +73,10 @@ public class HEADJobCreationService {
             log.info("startNewJobAssignment error geocoding={}", ignore.getMessage());
         }
 
+        if (startAddr == null) {
+            log.warn("[JOB_GEOCODING] sin dirección para clientUuid={} lat={} lng={}; el job continuará con startAddress=null",
+                    clientUuid, req.getUserLat(), req.getUserLong());
+        }
         log.info("startNewJobAssignment va al servicio a obtener las direcciones domain={}", startAddr);
 
         var resolved = promotionsResolver.resolveForProfileAndPackages(

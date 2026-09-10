@@ -51,6 +51,10 @@ public class HEADGeocodingService {
                 )
                 .bodyToMono(HEADGoogleGeocodeResponse.class)
                 .mapNotNull(this::extractAddressFromObject)
+                                .switchIfEmpty(reactor.core.publisher.Mono.defer(() -> {
+                                        log.warn("[GEO] sin dirección para latlng={}; Google no devolvió un resultado utilizable", latlng);
+                                        return reactor.core.publisher.Mono.empty();
+                                }))
                 .timeout(java.time.Duration.ofSeconds(2))
                 .onErrorResume(ex -> {
                     log.warn("[GEO] falló geocode latlng={} err={}", latlng, ex.toString());
