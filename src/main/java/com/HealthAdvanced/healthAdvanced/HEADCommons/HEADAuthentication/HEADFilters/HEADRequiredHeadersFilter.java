@@ -35,8 +35,12 @@ public class HEADRequiredHeadersFilter extends OncePerRequestFilter {
             return true;
         }
 
+        String path = request.getServletPath();
+        if (path.endsWith("-demo.html")) {
+            return true;
+        }
+
         if (!props.getHeaders().isEnforceOnPublic()) {
-            String path = request.getServletPath();
             return props.getPaths().getPublicPaths().stream()
                     .anyMatch(pattern -> ant.match(pattern, path));
         }
