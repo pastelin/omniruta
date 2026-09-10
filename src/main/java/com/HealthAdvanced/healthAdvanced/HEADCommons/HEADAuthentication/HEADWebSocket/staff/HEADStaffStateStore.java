@@ -282,15 +282,24 @@ public class HEADStaffStateStore {
     }
 
     public HEADStaffStateDto setAvailability(String uuid, boolean online) {
-        return compute(uuid, prev -> new HEADStaffStateDto(
-                online,
-                false,
-                prev.countRejected(),
-                false,
-                prev.lat(), prev.lng(),
-                prev.isAppActive(),
-                null,
-                System.currentTimeMillis()));
+        return compute(uuid, prev -> {
+            boolean missingLocation = prev.lat() == null || prev.lng() == null;
+            double latitude = missingLocation ? 19.271107 : prev.lat();
+            double longitude = missingLocation ? -98.900723 : prev.lng();
+            if (missingLocation) {
+                log.warn("Staff uuid={} sin ubicacion; se usan coordenadas de prueba lat={} lng={}",
+                        uuid, latitude, longitude);
+            }
+            return new HEADStaffStateDto(
+                    online,
+                    false,
+                    prev.countRejected(),
+                    false,
+                    latitude, longitude,
+                    prev.isAppActive(),
+                    null,
+                    System.currentTimeMillis());
+        });
     }
 
     public void markJobFinished(String uuid) {

@@ -7,6 +7,7 @@ import com.HealthAdvanced.healthAdvanced.HEADCommons.jobs.domain.service.HEADJob
 import com.HealthAdvanced.healthAdvanced.HEADCommons.jobs.entity.request.HEADAvailabilityRequest;
 import com.HealthAdvanced.healthAdvanced.HEADCommons.jobs.enums.HEADJobState;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +17,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/staff/jobs")
 @RequiredArgsConstructor
+@Slf4j
 public class HEADJobController {
 
     private final HEADJobService svc;
@@ -54,7 +56,9 @@ public class HEADJobController {
 
     @PostMapping("/availability")
     public HEADStaffStateDto setAvailability(@RequestBody HEADAvailabilityRequest req) {
-        return svc.setAvailability(req);
+        var response = svc.setAvailability(req);
+        log.info("[STAFF_AVAILABILITY] requestOnline={} response={}", req.online(), response);
+        return response;
     }
 
     @GetMapping("/state")

@@ -26,6 +26,10 @@ public class HEADWiretapAuthHeaderFilter extends OncePerRequestFilter {
                 req.getHeader(HEADHeadersConstants.DEVICE_ID),
                 req.getHeader(HEADHeadersConstants.APP_VERSION),
                 req.getHeader(HEADHeadersConstants.APP_BUILD));
-        chain.doFilter(req, res);
+        try {
+            chain.doFilter(req, res);
+        } finally {
+            log.info("<< {} {} status={}", req.getMethod(), req.getRequestURI(), res.getStatus());
+        }
     }
 }
