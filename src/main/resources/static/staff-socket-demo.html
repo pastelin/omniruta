@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docarya - Prueba Socket Staff</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root { --blue: #1868db; --blue-dark: #0f4aa1; --bg: #eef4fb; --ok: #15803d; --error: #b42318; --muted: #667085; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: #1d2939; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  header { margin-bottom: 18px; }
+  h1 { margin: 0; font-size: 22px; }
+  header p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .card { background: #fff; border-radius: 8px; padding: 18px; box-shadow: 0 1px 4px rgba(16, 24, 40, .12); }
+  .card.full { grid-column: 1 / -1; }
+  h2 { margin: 0 0 14px; font-size: 16px; }
+  label { display: block; margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
+  input { width: 100%; padding: 9px; border: 1px solid #d0d5dd; border-radius: 5px; font-size: 14px; }
+  button { margin-top: 14px; padding: 9px 14px; border: 0; border-radius: 5px; background: var(--blue); color: #fff; font-weight: bold; cursor: pointer; }
+  button:hover { background: var(--blue-dark); }
+  button.secondary { margin-left: 8px; background: #475467; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .status { margin-top: 12px; padding: 8px; border-radius: 5px; background: #f2f4f7; font-size: 13px; }
+  .status.ok { background: #ecfdf3; color: var(--ok); }
+  .status.error { background: #fef3f2; color: var(--error); }
+  #log { margin: 0; min-height: 180px; max-height: 360px; overflow: auto; padding: 12px; border-radius: 6px; background: #101828; color: #d0d5dd; font: 12px Consolas, monospace; white-space: pre-wrap; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  @media (max-width: 700px) { main { padding: 16px; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Prueba de ubicacion Socket.IO para Staff</h1>
+    <p>Envie una ubicacion al mismo canal que usa la aplicacion movil: <code>/staff</code>, evento <code>loc:update</code>.</p>
+  </header>
+
+  <section class="grid">
+    <div class="card full">
+      <h2>1. Conexion</h2>
+      <label for="serverUrl">Servidor Socket.IO</label>
+      <input id="serverUrl" type="url">
+      <label for="token">Access token del staff</label>
+      <input id="token" type="password" placeholder="eyJ...">
+      <button id="connectBtn" type="button">Conectar</button>
+      <button id="disconnectBtn" type="button" class="secondary" disabled>Desconectar</button>
+      <div id="connectionStatus" class="status">Desconectado</div>
+    </div>
+
+    <div class="card">
+      <h2>2. Ubicacion</h2>
+      <label for="lat">Latitud</label>
+      <input id="lat" type="number" step="any" value="19.441263">
+      <label for="lng">Longitud</label>
+      <input id="lng" type="number" step="any" value="-99.184136">
+      <label for="accuracy">Precision en metros (opcional)</label>
+      <input id="accuracy" type="number" step="any" value="10">
+      <button id="sendLocationBtn" type="button" disabled>Enviar loc:update</button>
+      <button id="useGpsBtn" type="button" class="secondary">Usar GPS del navegador</button>
+    </div>
+
+    <div class="card">
+      <h2>3. Disponibilidad</h2>
+      <p class="hint">Primero envia ubicacion y despues activa disponibilidad.</p>
+      <button id="onlineBtn" type="button" disabled>Enviar online:toggle = true</button>
+      <button id="offlineBtn" type="button" class="secondary" disabled>Enviar online:toggle = false</button>
+      <p class="hint">El estado Redis expira en 120 segundos. Durante una prueba, vuelve a enviar ubicacion antes de que expire.</p>
+    </div>
+
+    <div class="card full">
+      <h2>Eventos y respuestas</h2>
+      <pre id="log">Listo para conectar.</pre>
+    </div>
+  </section>
+</main>
+
+<script>
+  let socket = null;
+  const defaultProtocol = location.protocol === 'https:' ? 'https:' : 'http:';
+  document.getElementById('serverUrl').value = `${defaultProtocol}//${location.hostname}:8083/staff`;
+
+  function log(message, data) {
+    const entry = `[${new Date().toLocaleTimeString()}] ${message}` + (data === undefined ? '' : `\n${JSON.stringify(data, null, 2)}`);
+    const target = document.getElementById('log');
+    target.textContent = entry + '\n\n' + target.textContent;
+  }
+
+  function setConnectionStatus(message, kind) {
+    const target = document.getElementById('connectionStatus');
+    target.textContent = message;
+    target.className = `status ${kind || ''}`;
+  }
+
+  function setConnected(connected) {
+    document.getElementById('connectBtn').disabled = connected;
+    document.getElementById('disconnectBtn').disabled = !connected;
+    document.getElementById('sendLocationBtn').disabled = !connected;
+    document.getElementById('onlineBtn').disabled = !connected;
+    document.getElementById('offlineBtn').disabled = !connected;
+  }
+
+  document.getElementById('connectBtn').onclick = () => {
+    const serverUrl = document.getElementById('serverUrl').value.trim();
+    const token = document.getElementById('token').value.trim();
+    if (!serverUrl || !token) {
+      setConnectionStatus('Escribe la URL y un access token vigente.', 'error');
+      return;
+    }
+
+    socket = io(serverUrl, { transports: ['websocket'], query: { token } });
+    socket.on('connect', () => {
+      setConnected(true);
+      setConnectionStatus(`Conectado. sessionId=${socket.id}`, 'ok');
+      log('Socket conectado', { sessionId: socket.id });
+    });
+    socket.on('connect_error', error => {
+      setConnected(false);
+      setConnectionStatus(`No se pudo conectar: ${error.message}`, 'error');
+      log('connect_error', { message: error.message });
+    });
+    socket.on('disconnect', reason => {
+      setConnected(false);
+      setConnectionStatus(`Desconectado: ${reason}`, 'error');
+      log('Socket desconectado', { reason });
+    });
+    socket.on('state', state => log('Evento state recibido', state));
+  };
+
+  document.getElementById('disconnectBtn').onclick = () => socket?.disconnect();
+
+  function emitWithAck(event, payload) {
+    if (!socket?.connected) {
+      setConnectionStatus('Conectate antes de enviar eventos.', 'error');
+      return;
+    }
+    log(`Emitiendo ${event}`, payload);
+    socket.emit(event, payload, response => log(`ACK ${event}`, response));
+  }
+
+  document.getElementById('sendLocationBtn').onclick = () => {
+    const lat = Number(document.getElementById('lat').value);
+    const lng = Number(document.getElementById('lng').value);
+    const accuracyText = document.getElementById('accuracy').value;
+    const accuracy = accuracyText === '' ? null : Number(accuracyText);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setConnectionStatus('Latitud y longitud deben ser numeros validos.', 'error');
+      return;
+    }
+    emitWithAck('loc:update', { lat, lng, accuracy });
+  };
+
+  document.getElementById('onlineBtn').onclick = () => emitWithAck('online:toggle', { online: true });
+  document.getElementById('offlineBtn').onclick = () => emitWithAck('online:toggle', { online: false });
+
+  document.getElementById('useGpsBtn').onclick = () => {
+    if (!navigator.geolocation) {
+      setConnectionStatus('Este navegador no soporta geolocalizacion.', 'error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        document.getElementById('lat').value = position.coords.latitude;
+        document.getElementById('lng').value = position.coords.longitude;
+        document.getElementById('accuracy').value = position.coords.accuracy;
+        log('GPS del navegador obtenido', { lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy });
+      },
+      error => setConnectionStatus(`No se pudo leer GPS: ${error.message}`, 'error'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+</script>
+</body>
+</html>

@@ -71,6 +71,7 @@ head:
         - /onboarding-flow-demo.html
         - /login-demo.html
         - /post-login-flow-demo.html
+        - /staff-socket-demo.html
       by-role:
         REGISTER_PERSONAL:
           - /register/personal/**
