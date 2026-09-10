@@ -66,6 +66,11 @@ public class HEADJobCreationService {
         var existsPackageProfile = occupationsProfilesRepository.findById(req.getProfileId())
                 .orElseThrow(() -> new HEADBadRequestException("El Servicio no existe: " + req.getProfileId()));
 
+        log.info("[JOB_REQUEST] clientUuid={} clientRoles={} profileId={} profile={} packageId={} packageTitle={} optionId={} lat={} lng={}",
+            clientUuid, client.getRoles(),
+            existsPackageProfile.getIdOccupationProfile(), existsPackageProfile.getNameTypeProfile(),
+            pkg.getId(), pkg.getTitle(), option.getId(), req.getUserLat(), req.getUserLong());
+
         String startAddr = null;
         try {
             startAddr = geocodingService.getAddressDescription(req.getUserLat(), req.getUserLong());

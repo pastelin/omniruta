@@ -16,6 +16,7 @@ import com.HealthAdvanced.healthAdvanced.HEADCommons.jobs.enums.HEADJobState;
 import com.HealthAdvanced.healthAdvanced.HEADCommons.jobs.enums.HEADPaymentStatus;
 import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.irepositories.HEADJobRepository;
 import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.irepositories.HEADPackagesPersonalRepository;
+import com.HealthAdvanced.healthAdvanced.HEADPersonal.HEADPersonalUser.domain.repositories.irepositories.HEADPersonalUserRepository;
 import com.HealthAdvanced.healthAdvanced.HEHOPaymentMethods.stripe.PaymentService.HEADStripeJobGuardService;
 import com.HealthAdvanced.healthAdvanced.HEHOPaymentMethods.stripe.entity.request.HEADPaymentStripeAmountRequest;
 import com.HealthAdvanced.healthAdvanced.ModelsBD.Users.HEADServiceRequestClient;
@@ -40,6 +41,7 @@ public class HEADShowStaffsToClientsService {
 
     private final HEADRideAssignmentService rideAssignmentService;
     private final HEADJobRepository jobRepository;
+    private final HEADPersonalUserRepository staffRepository;
     private final HEADPackagesMaps packageDirectory;
     private final HEADStripeJobGuardService stripeJobGuard;
 
@@ -73,6 +75,24 @@ public class HEADShowStaffsToClientsService {
         stripeJobGuard.assertJobNotCanceledInStripe(job);
 
         var nearby = getNearbyStaffsForMap(req, true);
+
+        var requestedProfiles = packageDirectory.resolveProfileIdsFromPackage(req.getIdPackage());
+        log.info("[JOB_MATCH] jobId={} clientUuid={} clientRoles={} requestedPackage={} requestedProfiles={} clientLat={} clientLng={} candidates={}",
+            job.getId(), clientUuid, job.getClient().getRoles(), req.getIdPackage(), requestedProfiles,
+            req.getUserLat(), req.getUserLong(),
+            nearby == null || nearby.getHeadStaffsCurrents() == null ? 0 : nearby.getHeadStaffsCurrents().size());
+
+        if (nearby != null && nearby.getHeadStaffsCurrents() != null) {
+            nearby.getHeadStaffsCurrents().forEach(candidate -> {
+            var staff = staffRepository.findByUidUser(candidate.getUuidUser()).orElse(null);
+            log.info("[JOB_MATCH_CANDIDATE] jobId={} staffUuid={} staffId={} staffRoles={} occupation={} primaryProfileId={} primaryProfile={} matchedProfiles={} distanceKm={} etaMinutes={} lat={} lng={}",
+                job.getId(), candidate.getUuidUser(), candidate.getIdPersonalUser(),
+                staff != null ? staff.getRoles() : "NOT_FOUND",
+                candidate.getProfileOccupation(), candidate.getIdProfileUser(), candidate.getProfileStaff(),
+                candidate.getMatchedProfileIds(), candidate.getDistanceKm(), candidate.getEtaMinutes(),
+                candidate.getLatitude(), candidate.getLongitude());
+            });
+        }
 
         List<String> queue = (nearby == null || nearby.getHeadStaffsCurrents() == null)
                 ? List.of()
